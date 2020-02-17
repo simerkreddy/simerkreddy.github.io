@@ -1,0 +1,381 @@
+---
+title: "SMU DDS Case Study:Advanced analytics on Budweiser data"
+author: "Simerpreet Reddy"
+date: "Jan/22/2020"
+output:
+  html_document:
+    df_print: paged
+  word_document: default
+---
+## Purpose
+
+The purpose of the code is to perform anlaysis on Budweiser Beers and Breweries data. Beers data provides the different measures of the Beer, such as it's name, ABV(Alcohal By Volume), IBU(Internation Bitternes Unit), Beer Style and the Brewery it comes from. 
+
+Breweries data on the other hand provides the name of the Brewery along with the City and State it is located in. 
+Analysis is done to provide insights from Beers and Breweries data on following aspects:
+Brewery and beer distribution by State.
+Comparison of ABV and IBU by-	
+State, and 
+Beer Style – IPA and Other Ales.
+
+
+```{r}
+#Include the necessary libraries
+library(tidyr)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(GGally)
+library(class)
+library(caret)
+
+#Step 1: Import the source files
+#The provided source file have commas in data values, so I used "|" as the delimiter.The files have headers so, mark header=TRUE
+beers_raw <- read.csv(file.choose(), header = TRUE, sep = "|" )
+breweries_raw <- read.csv(file.choose(), header = TRUE, sep = "|" )
+
+#Answering the questions
+#Question 1. How many breweries are present in each state
+#Solution
+#Plot beweries by State
+ggplot(breweries_raw) + geom_bar(mapping = aes(x=State, fill = State)) + ggtitle("Number of breweries by State") +
+  ylab("Number of breweries") + xlab("State")
+
+# Question 2.Merge beer data with the breweries data. Print the first 6 observations and the last six observations to check the merged file.  (RMD only, this does not need to be included in the presentation or the deck.)
+#Solution
+#Step 1 Left join Beers data with Breweries data based on the column "Brewery_id" in Breweries data set and "Brew_ID" in Beer data set
+Beer_Breweries_raw <- left_join(beers_raw, breweries_raw, by = c("Brewery_id" = "Brew_ID" ), all = TRUE )
+
+#Step 2 Rename the columns of the merged dataset for better understanding
+colnames(Beer_Breweries_raw) <- c('Beer_Name', 'Beer_Id', 'ABV', 'IBU', 'Brewery_Id', 'Beer_Style', 'Ounces','Brewery_Name', 'City','State')
+
+#Step 3 Printe first 6 rows of the data
+head(Beer_Breweries_raw)
+
+#Step 4 Print last 6 rows of the data
+tail(Beer_Breweries_raw)
+
+
+#Question 3. Address the missing values in each column.
+#Solution
+#Check which columns of the data set have null values
+as.data.frame(lapply(Beer_Breweries_raw,function(x) { length(which(is.na(x)))}))
+
+#Create a dataframe to hold the column names with null values and the corresponding counts
+Missing_Values <- data.frame(Measure = c("ABV_Missing","IBU_Missing", "Total_#_Rows") , Number_of_Values = c(62,1005,2410))
+
+#Create a plot to show the number of nulls in each column compared to the total number of rows in the data set.
+ggplot(data= Missing_Values) + geom_bar(mapping = aes(x= Measure, y= Number_of_Values, fill= Measure), stat="identity") + xlab("Measure") +
+  ylab("Number of Values") + ggtitle("Number of missing values compared to the total number of rows")
+
+message("From the plot we see that the column ABV has 62 missing values and IBU has 1005 missing values.There's no other missing data.")
+message(" The number of missing values is huge so we cannot just filter out the data. We have to replace the missing values with some meaningful data.")   
+
+#Step 2 Address missing values in column ABV
+
+message(" Factors that affect a beer's ABV and IBU - State the beer comes from and it's style")
+
+#Looking at beer distribution by State
+ggplot(Beer_Breweries_raw) + geom_bar(mapping = aes(x=State, fill = State)) + 
+  ggtitle("Number of differnt Beers by State") +   ylab("Number of different beers")
+
+message("Looking at the beer distribution by State, we see that the data is not equally distributed. So, we do not want to consider State as a factor to calculate missing values. We will consider only Beer Category- based on beer style")
+
+#Looking at ABV and IBU data to check if there are any outliers
+#ABV distribution
+boxplot(Beer_Breweries_raw$ABV,  staplewex = 1, main = "Distribution of ABV", ylab = "ABV")
+text(y = boxplot.stats(Beer_Breweries_raw$ABV)$stats, labels = boxplot.stats(Beer_Breweries_raw$ABV)$stats, x = 1.25)
+
+#IBU distribution
+boxplot(Beer_Breweries_raw$IBU,  staplewex = 1, main = "Distribution of IBU", ylab = "IBU")
+text(y = boxplot.stats(Beer_Breweries_raw$ABV)$stats, labels = boxplot.stats(Beer_Breweries_raw$ABV)$stats, x = 1.25)
+
+message("As the data has outliers and the mean is sensitive to outliers, we will replace the missing values by the corresponding median in each Beer Category")
+
+#Assigning Beer Categories: Read the Beer_Style and assign the following categories: IPA- if the column Beer Style has IPA in its name, else 'Other Ales' if name has 'Ale' in its name and assign 'Other' to all the other types of beers. 
+Beer_Breweries_raw$Beer_Category <- ifelse(str_detect(Beer_Breweries_raw$Beer_Style, "IPA"), 'IPA', ifelse(str_detect(Beer_Breweries_raw$Beer_Style, "Ale"),'Other Ale','Other'))
+
+#Calculate median ABV for each Beer categy.
+Median_ABV_by_St_IPAorAle <- Beer_Breweries_raw%>% group_by(Beer_Category) %>% summarise(Median_ABV = median(ABV, na.rm=TRUE))
+#Join the Median_ABV data by State and Beer_Category with the Beer_Breweries_raw data set
+Beer_Breweries_raw_withMedianABV <-left_join(Beer_Breweries_raw,Median_ABV_by_St_IPAorAle, by = c("Beer_Category") )
+
+# Create a new column ABV_New containing ABV values and replacing missing values by the above calculated median ABV
+Beer_Breweries_raw_withMedianABV$ABV_New <- ifelse(is.na(Beer_Breweries_raw_withMedianABV$ABV), Beer_Breweries_raw_withMedianABV$Median_ABV, Beer_Breweries_raw_withMedianABV$ABV)
+
+#Calculate the median IBU grouping by Beer_Category.
+Median_IBU_by_St_IPAorAle_ABV_CAT <- Beer_Breweries_raw_withMedianABV%>% group_by( Beer_Category ) %>% summarise(Median_IBU = median(IBU, na.rm=TRUE))
+
+##Join the Median_IBU data by State, IPA/Ale category and ABV category with the data set above
+Beer_Breweries_raw_withMedianABV_IBU <-  left_join(Beer_Breweries_raw_withMedianABV,Median_IBU_by_St_IPAorAle_ABV_CAT, by = c("Beer_Category") )
+
+# Create a new column IBU_New containing IBU values and replacing missing values by the above calculated median IBU
+Beer_Breweries_raw_withMedianABV_IBU$IBU_New <- ifelse(is.na(Beer_Breweries_raw_withMedianABV_IBU$IBU), Beer_Breweries_raw_withMedianABV_IBU$Median_IBU, Beer_Breweries_raw_withMedianABV$IBU)
+
+#Filter out the missing values and remove the redundant columns
+Beer_Breweries_Clean <- filter(Beer_Breweries_raw_withMedianABV_IBU, !is.na(IBU_New)) %>% select( -Median_ABV, -Median_IBU)
+
+# Step 5 Check the cleansed data to see if we still have any missing data. Look for ABV_New and IBU_New
+as.data.frame(lapply(Beer_Breweries_Clean,function(x) { length(which(is.na(x)))}))
+message("As we do not have any missing values in the columns ABV_New and IBU_new, Beer_Breweries_Clean is the dataset we'll be doing further analysis on using the columns ABV_New and IBU_New")
+
+
+#Question 4.Compute the median alcohol content and international bitterness unit for each state. Plot a bar chart to compare.
+#Analysis on Cleansed data
+#Step 1 Calculate the median ABV by State
+#Step 1.1  Group by State and Summarise
+Answer4_Median_ABV <- Beer_Breweries_Clean %>%  group_by(State) %>% 
+  summarise(Median = median(ABV_New, na.rm = TRUE))
+
+#Step 1.2  Convert ABV to percentage (multiple by 100) for a more clear plot
+Answer4_Median_ABV$Median = Answer4_Median_ABV$Median * 100
+
+#Step 1.3 Create a dataframe with columns Median (calculated above) and a column 'Measure' with it's value as 'ABV%'
+Answer4_Median_ABV$Measure = "ABV%"
+
+#Step 2 Calculate the median IBU by State
+#Step 2.1  Group by State and Summarise
+Answer4_Median_IBU <- Beer_Breweries_Clean %>%  group_by(State) %>% 
+  summarise(Median = median(IBU_New, na.rm = TRUE))
+
+#Step 2.2 Create a dataframe with columns Median (calculated above) and a column 'Measure' wit it's value as 'IBU'
+Answer4_Median_IBU$Measure = "IBU"
+
+#Step 3 Combine the baove created data frame to have Median ABV% abd IBU in one data frame
+Answer4 <- rbind(Answer4_Median_ABV,Answer4_Median_IBU )
+
+#Step 4 Plot the bar chart
+ggplot(Answer4) + geom_bar(mapping= aes(x=State, y=Median, fill = Measure), stat= "identity", position = "dodge") + ggtitle("Median ABV and IBU by each State")
+
+
+#Analysis on Raw data
+#Step 1 Calculate the median ABV by State
+#Step 1.1  Group by State and Summarise
+Answer4_Median_ABV <- Beer_Breweries_Clean %>%  group_by(State) %>% 
+  summarise(Median = median(ABV, na.rm = TRUE))
+#Step 1.2  Convert ABV to percentage (multiple by 100) for a more clear plot
+Answer4_Median_ABV$Median = Answer4_Median_ABV$Median * 100
+#Step 1.3 Create a dataframe with columns Median (calculated above) and a column 'Measure' wit it's value as 'ABV%'
+Answer4_Median_ABV$Measure = "ABV%"
+
+#Step 2 Calculate the median IBU by State
+#Step 2.1  Group by State and Summarise
+Answer4_Median_IBU <- Beer_Breweries_Clean %>%  group_by(State) %>% 
+  summarise(Median = median(IBU, na.rm = TRUE))
+
+#Step 2.2 Create a dataframe with columns Median (calculated above) and a column 'Measure' wit it's value as 'IBU'
+Answer4_Median_IBU$Measure = "IBU"
+
+#Step 3 Combine the baove created data frame to have Median ABV% abd IBU in one data frame
+Answer4 <- rbind(Answer4_Median_ABV,Answer4_Median_IBU )
+
+#Step 4 Plot the bar chart
+ggplot(Answer4) + geom_bar(mapping= aes(x=State, y=Median, fill = Measure), stat= "identity", position = "dodge") + ggtitle("Median ABV and IBU by each State - Raw data")
+
+message("As we see that in Cleansed data, WV has the highest Median IBU, whereas in the raw data ME has the highest median IBU. Let's deep dive into ME data")
+
+#Select only the ME data from the entire data set
+Beer_Breweries_Clean_ME <- filter(Beer_Breweries_Clean, State=='ME') 
+#Check which rows have missing IBU
+Beer_Breweries_Clean_ME$IBU_Rows <- ifelse(is.na(Beer_Breweries_Clean_ME$IBU), "Missing", "Has Data")
+
+#Plot a gar char of the missing data
+ggplot(Beer_Breweries_Clean_ME) + geom_bar(mapping= aes( x=IBU_Rows, fill=IBU_Rows)) + ggtitle("Comparing number of missing IBU Values for ME in raw data") +
+  xlab("IBU Missing or Not") + ylab("Total Rows")
+
+message(" We see that out of 27 rows for ME data, 20 have missing data in the raw data set. Thus the cleansed data is more reliable")
+
+
+#Question 5. Which state has the maximum alcoholic (ABV) beer? Which state has the most bitter (IBU) beer?
+#Solution
+#Max ABV
+#Calculate max ABV by each state
+max_alc_content <-Beer_Breweries_Clean %>% group_by(State) %>% summarise(Max_Alcohol_Content = max(ABV_New, na.rm = TRUE))
+#Plot the data
+ggplot(max_alc_content) + geom_bar(mapping= aes(x= State,y= Max_Alcohol_Content, fill= State), stat= "identity") + ggtitle("Maximum alcohol content in each state") + ylab("Max Alcohal Content")
+
+message(" State with Maximum alcoholic beer is CO")
+
+#Max IBU: Most bitter beer
+#Calculate max IBU by each state
+max_IBU_content <-Beer_Breweries_Clean %>% group_by(State) %>% summarise(Max_IBU = max(IBU_New, na.rm = TRUE))
+#Plot the data
+ggplot(max_IBU_content) + geom_bar(mapping= aes(x= State,y= Max_IBU, fill= State), stat= "identity") + ggtitle("Maximum IBU in each State") + ylab("Max IBU Content")
+
+message(" State with most bitter beer is OR")
+
+#Question 6. Comment on the summary statistics and distribution of the ABV variable.
+#Run a summary on the cleansed ABV column 
+summary(Beer_Breweries_Clean$ABV_New)
+
+#ABV Density Plot
+d <- density(Beer_Breweries_Clean$ABV_New)
+plot(d, main = "Distribution of ABV" , xlab="ABV"  )
+
+lines(density(Beer_Breweries_Clean$ABV_New), # density plot
+      lwd = 2, # thickness of line
+      col = "chocolate3")
+abline(v = mean(Beer_Breweries_Clean$ABV_New),
+       col = "royalblue",
+       lwd = 2)
+abline(v = median(Beer_Breweries_Clean$ABV_New),
+       col = "red",
+       lwd = 2)
+legend(x = "topright", # location of legend within plot area
+       c("Density plot", "Mean=0.0597", "Median=0.056"),
+       col = c("chocolate3", "royalblue", "red"),
+       lwd = c(2, 2, 2))
+
+#ABV box plot
+boxplot(Beer_Breweries_Clean$ABV,  staplewex = 1, main = "Distribution of ABV", ylab = "ABV")
+text(y = boxplot.stats(Beer_Breweries_Clean$ABV)$stats, labels = boxplot.stats(Beer_Breweries_Clean$ABV)$stats, x = 1.25)
+
+#Question# 7
+#Create a Scatter plot of the data by ABV vs. IBU
+ggplot( data = Beer_Breweries_Clean) + geom_point(mapping = aes(x = ABV_New, y = IBU_New)) + 
+  geom_smooth(mapping = aes(x = ABV_New, y = IBU_New)) + ggtitle("Relationship between ABV and IBU") +
+  xlab("ABV") + ylab("IBU")
+
+#Also find the correlation factor between ABV and IBU
+library("ggpubr")
+
+ggscatter(Beer_Breweries_Clean, x = "ABV_New", y = "IBU_New", 
+          add = "reg.line", conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = "pearson",
+          xlab = "Alcohol Content", ylab = "Bitterness", color="blue") + 
+  ggtitle("Correlation between a beer's bitterness and it's alcoholic content")
+
+#Question 8: Find the correlation between ABV and IBU and IPA vs. Other Ales
+#Filter the data to include only IPA and Other Ales
+Beer_Breweries_Clean_8 <- Beer_Breweries_Clean %>% filter(Beer_Category %in% c("IPA", "Other Ale")) 
+#Plot the data
+ggplot( data = Beer_Breweries_Clean_8) + geom_point(mapping = aes(x = ABV_New, y = IBU_New)) + 
+  geom_smooth(mapping = aes(x = ABV_New, y = IBU_New)) + xlab("ABV") + ylab("IBU") +
+  facet_wrap(~Beer_Category) + ggtitle("Correlation between a beer's IBU and ABV by beer category -IPA vs. Other Ales")
+
+#Additional comparision of ABV and IBU by beer categories using ggpairs
+Beer_Breweries_Clean_8 %>% select(ABV_New, IBU_New,Beer_Category) %>% 
+  ggpairs(aes(color=Beer_Category) ,title="ABV vs. IBU by IPA vs. Other Ales")
+
+message("We can see from the plot that the IPAs have a higher median ABV and IBU compared to Other Ales. Most of the beers with higher ABV and IBU fall in IPA beer Category, whereas the Other Ales have comparatively lower ABV and IBU.")
+
+#Build KNN data model to analyze Beer Categories
+#Filter the data to limit it to IPA and Other Ale beer categories, and also select only the columns required for analysis
+Beer_Breweries_8_knn_data <- Beer_Breweries_Clean  %>% filter(Beer_Category %in% c("IPA", "Other Ale")) %>% select(Beer_Id,Beer_Name, ABV_New,IBU_New, Beer_Category)
+
+#Create a placeholder for Accuracy
+Acc= matrix(nrow=100, ncol=100)
+
+#For loop to create 100 different training and test data sets
+for(seed in 1:100) {
+  set.seed(seed)
+  trainIndices =  sample(seq(1:length(Beer_Breweries_8_knn_data$Beer_Category)), round(.7*length(Beer_Breweries_8_knn_data$Beer_Category)))
+  trainBew_Brewries = Beer_Breweries_8_knn_data[trainIndices,]
+  testBew_Brewries = Beer_Breweries_8_knn_data[-trainIndices,]
+#For loop to run KNN model for k=1-100  
+  for( i in 1:100) {
+    knn1 <- knn(trainBew_Brewries[, c(3,4)],testBew_Brewries[, c(3,4)], trainBew_Brewries$Beer_Category, k = i )
+    t_knn <- table(knn1,testBew_Brewries$Beer_Category )
+    #Create confusion matrix
+    Cm_Knn <- confusionMatrix(t_knn)
+    #Captures Accuracy
+    Acc[seed,i] = Cm_Knn$overall[1]
+    
+  } 
+  
+}
+#Caluclate mean accuracy for each of the seed/knn iteritions
+mean_Acc = colMeans(Acc)
+#Plot the data by knnvalue and accuracy
+plot(seq(1,100,1),mean_Acc, type = "l", xlab ='k', main = "Mean Accuracy by differnt values of k" )
+#See where we had the max accuracy
+which.max(mean_Acc)
+#Print the max accuracy of the model
+max(mean_Acc)
+
+message("By running KNN for different samples and different values of K, we can see the knn model accuracy is highest at k=5. So performing internal validation at KNN at k=5")
+#Perform internal validation with knn with knn=3
+
+knn5 <- knn.cv(Beer_Breweries_8_knn_data[, c(3,4)],Beer_Breweries_8_knn_data$Beer_Category, k=5 )
+
+t_knn <- table(knn5,Beer_Breweries_8_knn_data$Beer_Category )
+
+Cm_Knn <- confusionMatrix(t_knn)
+
+#Train the model with knn analysis
+model_knn <- train(Beer_Breweries_8_knn_data[, c(3,4)], Beer_Breweries_8_knn_data$Beer_Category, method='knn')
+
+#Predict the beer categories using the model
+Beer_Breweries_8_knn_data$Knn_New <-as.factor(predict(model_knn,Beer_Breweries_8_knn_data[, c(3,4)]))
+
+#Question 9: Check for misclassification of beers
+
+#Compare the Beer Category assignment by knn Model vs. the provided Budweiser data
+Mismatched_data <- filter(Beer_Breweries_8_knn_data,Beer_Breweries_8_knn_data$Knn_New != Beer_Breweries_8_knn_data$Beer_Category)
+
+#No of rows of mismatched data
+nrow(Mismatched_data)
+
+#Plot the total mismatched data
+#Plor beer categories by Budweiser asssignment
+ggplot(Beer_Breweries_8_knn_data) + geom_bar(mapping = aes(x = Beer_Category, fill= Beer_Category)) +
+ylab("Number of Beers") + ggtitle("Beer Count by Budweiser Categories")
+
+#Plor beer categories by KNN asssignment
+ggplot(Beer_Breweries_8_knn_data) + geom_bar(mapping = aes(x = Knn_New, fill= Knn_New))+
+  ylab("Number of Beers") + xlab("Beer Category by KNN Classification")+ ggtitle("Beer Count by KNN Classification")
+
+#Find the number of beer misclassified as IPA
+nrow(filter(Mismatched_data, Beer_Category == "IPA" ))
+
+#Find the number of beer misclassified as Other Ales
+nrow(filter(Mismatched_data, Beer_Category != "IPA" ))
+
+message("We can see that around 68 beers were misclassified as 'IPA' and 51 were misclassified as 'Other Ale' ")
+
+#Print a few samples of the mismatched data
+#Top 6
+head(Beer_Breweries_8_knn_data)
+#Bottm 6
+tail(Beer_Breweries_8_knn_data)
+
+#Run a summary of the data set
+summary(Beer_Breweries_8_knn_data)
+Beer_Breweries_8_knn_data$Beer_Category<- as.factor(Beer_Breweries_8_knn_data$Beer_Category)
+#colnames(Beer_Breweries_8_knn_data$Knn_New.predict(model_knn, Beer_Breweries_8_knn_data[, c(3, 4)])) <- c("Beer_Category_knn")
+
+#Check Budweisers classification of beer from mismatched data
+filter(Beer_Breweries_Clean, Beer_Id %in% c(2602, 2105, 1021, 1930)) %>% select(Beer_Id,Beer_Name,ABV_New,IBU_New,Beer_Style)
+
+#Check Beer categories for beers with ABV = 0.050 & IBU_New = 45
+invaid_class <- filter(Beer_Breweries_Clean, ABV_New == 0.050 & IBU_New == 45 )%>% select(Beer_Id,Beer_Name,ABV_New,IBU_New,Beer_Style,Beer_Category)
+
+#Plot the Budweised classification for beers with ABV = 0.050 & IBU_New = 45 
+ggplot(invaid_class) + geom_bar(mapping= aes(x= Beer_Name, fill=Beer_Category)) + 
+  ggtitle("Budweiser's Classification of Beer with ABV= 0.050 and IBU = 45")
+
+message("We see that 2 of the 3 beers with ABV=0.050 and IBU=45 were classified at Other Ales, but one was classified as IPA")
+
+nrow(Mismatched_data)
+message("In total there are 119 beers, out of 2410, which, according to the KNN model, seem to have been incorrectly categoried as IPA or Other Ales by Budweiser")
+
+message("Take away from the analysis: 
+Conflicting ‘Beer Style’ and ‘Expected Taste’ can affect the sale of the beer, so we need to correct the classifications.
+82 beers are candidates for re-classification for Beer Style based on their Alcohol content and bitterness levels. The list is included below.")
+
+#Renaming columns for better clarity
+colnames(Mismatched_data) <- c("Beer Id", "Beer Name","ABV","IBU","Budweiser_Beer_Category", "KNN_Predicted_Beer_Category")
+
+#List of 119 beers with conflicting beer_style
+print.data.frame(Mismatched_data)
+
+
+```
+## Take away from the analysis
+Conflicting ‘Beer Style’ and ‘Expected Taste’ can affect the sale of the beer, so we need to correct the classifications.
+
+119 beers are candidates for re-classification for Beer Style based on their Alcohol content and bitterness levels. 
+
+
+
+

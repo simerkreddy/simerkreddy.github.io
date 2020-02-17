@@ -1,0 +1,18 @@
+---
+title: "About me"
+output: html_document
+---
+
+Hello! My name is Simerpreet Reddy
+
+![](IMG_9247.jpg)
+
+I am based out of Houston, Texas
+
+My interests: I love my family, my job and love everything I am learning at SMU. There's hardly any time to pursue other interests right now! Just need add some focus on my health now.
+
+Where I work: I currently work as a Sr. Data Analyst at Archrock. Archrock is the leading provider of natural gas contract compression services in the U.S.
+
+Where I went to school: I did my Bachelors of Technology from India with 'Electronics and Telecommunication Engineering' as my specialization.
+
+Other tabs on this website: I am currenlty pursuing Masters of Science in Data Science at SMU. Please see the other tabs to see the work I have done as part of my assignmemtns for the course 'Doing Data Science'.
