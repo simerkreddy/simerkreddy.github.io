@@ -1,0 +1,1006 @@
+<!DOCTYPE html>
+
+<html xmlns="http://www.w3.org/1999/xhtml">
+
+<head>
+
+<meta charset="utf-8" />
+<meta http-equiv="Content-Type" content="text/html; charset=utf-8" />
+<meta name="generator" content="pandoc" />
+<meta http-equiv="X-UA-Compatible" content="IE=EDGE" />
+
+
+<meta name="author" content="Simerpreet Reddy" />
+
+
+<title>SMU DDS Case Study:Advanced analytics on Budweiser data</title>
+
+<script src="site_libs/jquery-1.11.3/jquery.min.js"></script>
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<link href="site_libs/bootstrap-3.3.5/css/bootstrap.min.css" rel="stylesheet" />
+<script src="site_libs/bootstrap-3.3.5/js/bootstrap.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/html5shiv.min.js"></script>
+<script src="site_libs/bootstrap-3.3.5/shim/respond.min.js"></script>
+<script src="site_libs/navigation-1.1/tabsets.js"></script>
+<link href="site_libs/highlightjs-9.12.0/default.css" rel="stylesheet" />
+<script src="site_libs/highlightjs-9.12.0/highlight.js"></script>
+<link href="site_libs/pagedtable-1.1/css/pagedtable.css" rel="stylesheet" />
+<script src="site_libs/pagedtable-1.1/js/pagedtable.js"></script>
+
+<style type="text/css">code{white-space: pre;}</style>
+<style type="text/css">
+  pre:not([class]) {
+    background-color: white;
+  }
+</style>
+<script type="text/javascript">
+if (window.hljs) {
+  hljs.configure({languages: []});
+  hljs.initHighlightingOnLoad();
+  if (document.readyState && document.readyState === "complete") {
+    window.setTimeout(function() { hljs.initHighlighting(); }, 0);
+  }
+}
+</script>
+
+
+
+<style type="text/css">
+h1 {
+  font-size: 34px;
+}
+h1.title {
+  font-size: 38px;
+}
+h2 {
+  font-size: 30px;
+}
+h3 {
+  font-size: 24px;
+}
+h4 {
+  font-size: 18px;
+}
+h5 {
+  font-size: 16px;
+}
+h6 {
+  font-size: 12px;
+}
+.table th:not([align]) {
+  text-align: left;
+}
+</style>
+
+
+
+
+<style type = "text/css">
+.main-container {
+  max-width: 940px;
+  margin-left: auto;
+  margin-right: auto;
+}
+code {
+  color: inherit;
+  background-color: rgba(0, 0, 0, 0.04);
+}
+img {
+  max-width:100%;
+}
+.tabbed-pane {
+  padding-top: 12px;
+}
+.html-widget {
+  margin-bottom: 20px;
+}
+button.code-folding-btn:focus {
+  outline: none;
+}
+summary {
+  display: list-item;
+}
+</style>
+
+
+<style type="text/css">
+/* padding for bootstrap navbar */
+body {
+  padding-top: 51px;
+  padding-bottom: 40px;
+}
+/* offset scroll position for anchor links (for fixed navbar)  */
+.section h1 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h2 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h3 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h4 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h5 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.section h6 {
+  padding-top: 56px;
+  margin-top: -56px;
+}
+.dropdown-submenu {
+  position: relative;
+}
+.dropdown-submenu>.dropdown-menu {
+  top: 0;
+  left: 100%;
+  margin-top: -6px;
+  margin-left: -1px;
+  border-radius: 0 6px 6px 6px;
+}
+.dropdown-submenu:hover>.dropdown-menu {
+  display: block;
+}
+.dropdown-submenu>a:after {
+  display: block;
+  content: " ";
+  float: right;
+  width: 0;
+  height: 0;
+  border-color: transparent;
+  border-style: solid;
+  border-width: 5px 0 5px 5px;
+  border-left-color: #cccccc;
+  margin-top: 5px;
+  margin-right: -10px;
+}
+.dropdown-submenu:hover>a:after {
+  border-left-color: #ffffff;
+}
+.dropdown-submenu.pull-left {
+  float: none;
+}
+.dropdown-submenu.pull-left>.dropdown-menu {
+  left: -100%;
+  margin-left: 10px;
+  border-radius: 6px 0 6px 6px;
+}
+</style>
+
+<script>
+// manage active state of menu based on current page
+$(document).ready(function () {
+  // active menu anchor
+  href = window.location.pathname
+  href = href.substr(href.lastIndexOf('/') + 1)
+  if (href === "")
+    href = "index.html";
+  var menuAnchor = $('a[href="' + href + '"]');
+
+  // mark it active
+  menuAnchor.parent().addClass('active');
+
+  // if it's got a parent navbar menu mark it active as well
+  menuAnchor.closest('li.dropdown').addClass('active');
+});
+</script>
+
+<!-- tabsets -->
+
+<style type="text/css">
+.tabset-dropdown > .nav-tabs {
+  display: inline-table;
+  max-height: 500px;
+  min-height: 44px;
+  overflow-y: auto;
+  background: white;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs > li.active:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li.active:before {
+  content: "&#xe258;";
+  border: none;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open:before {
+  content: "";
+  font-family: 'Glyphicons Halflings';
+  display: inline-block;
+  padding: 10px;
+  border-right: 1px solid #ddd;
+}
+
+.tabset-dropdown > .nav-tabs > li.active {
+  display: block;
+}
+
+.tabset-dropdown > .nav-tabs > li > a,
+.tabset-dropdown > .nav-tabs > li > a:focus,
+.tabset-dropdown > .nav-tabs > li > a:hover {
+  border: none;
+  display: inline-block;
+  border-radius: 4px;
+}
+
+.tabset-dropdown > .nav-tabs.nav-tabs-open > li {
+  display: block;
+  float: none;
+}
+
+.tabset-dropdown > .nav-tabs > li {
+  display: none;
+}
+</style>
+
+<!-- code folding -->
+
+
+
+
+</head>
+
+<body>
+
+
+<div class="container-fluid main-container">
+
+
+
+
+<div class="navbar navbar-default  navbar-fixed-top" role="navigation">
+  <div class="container">
+    <div class="navbar-header">
+      <button type="button" class="navbar-toggle collapsed" data-toggle="collapse" data-target="#navbar">
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+        <span class="icon-bar"></span>
+      </button>
+      <a class="navbar-brand" href="index.html">My Website</a>
+    </div>
+    <div id="navbar" class="navbar-collapse collapse">
+      <ul class="nav navbar-nav">
+        <li>
+  <a href="About_Me.html">About me</a>
+</li>
+<li>
+  <a href="Unit_8_Case_Study.html">Beer Study</a>
+</li>
+<li>
+  <a href="Old_Faithful.html">Old Faithful</a>
+</li>
+      </ul>
+      <ul class="nav navbar-nav navbar-right">
+        
+      </ul>
+    </div><!--/.nav-collapse -->
+  </div><!--/.container -->
+</div><!--/.navbar -->
+
+<div class="fluid-row" id="header">
+
+
+
+<h1 class="title toc-ignore">SMU DDS Case Study:Advanced analytics on Budweiser data</h1>
+<h4 class="author">Simerpreet Reddy</h4>
+<h4 class="date">Jan/22/2020</h4>
+
+</div>
+
+
+<div id="purpose" class="section level2">
+<h2>Purpose</h2>
+<p>The purpose of the code is to perform anlaysis on Budweiser Beers and Breweries data. Beers data provides the different measures of the Beer, such as it’s name, ABV(Alcohal By Volume), IBU(Internation Bitternes Unit), Beer Style and the Brewery it comes from.</p>
+<p>Breweries data on the other hand provides the name of the Brewery along with the City and State it is located in. Analysis is done to provide insights from Beers and Breweries data on following aspects: Brewery and beer distribution by State. Comparison of ABV and IBU by-<br />
+State, and Beer Style – IPA and Other Ales.</p>
+<pre class="r"><code>#Include the necessary libraries
+library(tidyr)
+library(tidyverse)
+library(dplyr)
+library(ggplot2)
+library(GGally)
+library(class)
+library(caret)
+
+#Step 1: Import the source files
+#The provided source file have commas in data values, so I used &quot;|&quot; as the delimiter.The files have headers so, mark header=TRUE
+beers_raw &lt;- read.csv(file.choose(), header = TRUE, sep = &quot;|&quot; )
+breweries_raw &lt;- read.csv(file.choose(), header = TRUE, sep = &quot;|&quot; )
+
+#Answering the questions
+#Question 1. How many breweries are present in each state
+#Solution
+#Plot beweries by State
+ggplot(breweries_raw) + geom_bar(mapping = aes(x=State, fill = State)) + ggtitle(&quot;Number of breweries by State&quot;) +
+  ylab(&quot;Number of breweries&quot;) + xlab(&quot;State&quot;)</code></pre>
+<p><img src="Unit_8_Case_Study_files/figure-html/unnamed-chunk-1-1.png" width="672" /></p>
+<pre class="r"><code># Question 2.Merge beer data with the breweries data. Print the first 6 observations and the last six observations to check the merged file.  (RMD only, this does not need to be included in the presentation or the deck.)
+#Solution
+#Step 1 Left join Beers data with Breweries data based on the column &quot;Brewery_id&quot; in Breweries data set and &quot;Brew_ID&quot; in Beer data set
+Beer_Breweries_raw &lt;- left_join(beers_raw, breweries_raw, by = c(&quot;Brewery_id&quot; = &quot;Brew_ID&quot; ), all = TRUE )
+
+#Step 2 Rename the columns of the merged dataset for better understanding
+colnames(Beer_Breweries_raw) &lt;- c(&#39;Beer_Name&#39;, &#39;Beer_Id&#39;, &#39;ABV&#39;, &#39;IBU&#39;, &#39;Brewery_Id&#39;, &#39;Beer_Style&#39;, &#39;Ounces&#39;,&#39;Brewery_Name&#39;, &#39;City&#39;,&#39;State&#39;)
+
+#Step 3 Printe first 6 rows of the data
+head(Beer_Breweries_raw)</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["Beer_Name"],"name":[1],"type":["fctr"],"align":["left"]},{"label":["Beer_Id"],"name":[2],"type":["int"],"align":["right"]},{"label":["ABV"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["IBU"],"name":[4],"type":["int"],"align":["right"]},{"label":["Brewery_Id"],"name":[5],"type":["int"],"align":["right"]},{"label":["Beer_Style"],"name":[6],"type":["fctr"],"align":["left"]},{"label":["Ounces"],"name":[7],"type":["dbl"],"align":["right"]},{"label":["Brewery_Name"],"name":[8],"type":["fctr"],"align":["left"]},{"label":["City"],"name":[9],"type":["fctr"],"align":["left"]},{"label":["State"],"name":[10],"type":["fctr"],"align":["left"]}],"data":[{"1":"Pub Beer","2":"1436","3":"0.050","4":"NA","5":"409","6":"American Pale Lager","7":"12","8":"10 Barrel Brewing Company","9":"Bend","10":"OR","_rn_":"1"},{"1":"Devil's Cup","2":"2265","3":"0.066","4":"NA","5":"178","6":"American Pale Ale (APA)","7":"12","8":"18th Street Brewery","9":"Gary","10":"IN","_rn_":"2"},{"1":"Rise of the Phoenix","2":"2264","3":"0.071","4":"NA","5":"178","6":"American IPA","7":"12","8":"18th Street Brewery","9":"Gary","10":"IN","_rn_":"3"},{"1":"Sinister","2":"2263","3":"0.090","4":"NA","5":"178","6":"American Double / Imperial IPA","7":"12","8":"18th Street Brewery","9":"Gary","10":"IN","_rn_":"4"},{"1":"Sex and Candy","2":"2262","3":"0.075","4":"NA","5":"178","6":"American IPA","7":"12","8":"18th Street Brewery","9":"Gary","10":"IN","_rn_":"5"},{"1":"Black Exodus","2":"2261","3":"0.077","4":"NA","5":"178","6":"Oatmeal Stout","7":"12","8":"18th Street Brewery","9":"Gary","10":"IN","_rn_":"6"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+<pre class="r"><code>#Step 4 Print last 6 rows of the data
+tail(Beer_Breweries_raw)</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["Beer_Name"],"name":[1],"type":["fctr"],"align":["left"]},{"label":["Beer_Id"],"name":[2],"type":["int"],"align":["right"]},{"label":["ABV"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["IBU"],"name":[4],"type":["int"],"align":["right"]},{"label":["Brewery_Id"],"name":[5],"type":["int"],"align":["right"]},{"label":["Beer_Style"],"name":[6],"type":["fctr"],"align":["left"]},{"label":["Ounces"],"name":[7],"type":["dbl"],"align":["right"]},{"label":["Brewery_Name"],"name":[8],"type":["fctr"],"align":["left"]},{"label":["City"],"name":[9],"type":["fctr"],"align":["left"]},{"label":["State"],"name":[10],"type":["fctr"],"align":["left"]}],"data":[{"1":"Rocky Mountain Oyster Stout","2":"1035","3":"0.075","4":"NA","5":"425","6":"American Stout","7":"12","8":"Wynkoop Brewing Company","9":"Denver","10":"CO","_rn_":"2405"},{"1":"Belgorado","2":"928","3":"0.067","4":"45","5":"425","6":"Belgian IPA","7":"12","8":"Wynkoop Brewing Company","9":"Denver","10":"CO","_rn_":"2406"},{"1":"Rail Yard Ale","2":"807","3":"0.052","4":"NA","5":"425","6":"American Amber / Red Ale","7":"12","8":"Wynkoop Brewing Company","9":"Denver","10":"CO","_rn_":"2407"},{"1":"B3K Black Lager","2":"620","3":"0.055","4":"NA","5":"425","6":"Schwarzbier","7":"12","8":"Wynkoop Brewing Company","9":"Denver","10":"CO","_rn_":"2408"},{"1":"Silverback Pale Ale","2":"145","3":"0.055","4":"40","5":"425","6":"American Pale Ale (APA)","7":"12","8":"Wynkoop Brewing Company","9":"Denver","10":"CO","_rn_":"2409"},{"1":"Rail Yard Ale (2009)","2":"84","3":"0.052","4":"NA","5":"425","6":"American Amber / Red Ale","7":"12","8":"Wynkoop Brewing Company","9":"Denver","10":"CO","_rn_":"2410"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+<pre class="r"><code>#Question 3. Address the missing values in each column.
+#Solution
+#Check which columns of the data set have null values
+as.data.frame(lapply(Beer_Breweries_raw,function(x) { length(which(is.na(x)))}))</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":["Beer_Name"],"name":[1],"type":["int"],"align":["right"]},{"label":["Beer_Id"],"name":[2],"type":["int"],"align":["right"]},{"label":["ABV"],"name":[3],"type":["int"],"align":["right"]},{"label":["IBU"],"name":[4],"type":["int"],"align":["right"]},{"label":["Brewery_Id"],"name":[5],"type":["int"],"align":["right"]},{"label":["Beer_Style"],"name":[6],"type":["int"],"align":["right"]},{"label":["Ounces"],"name":[7],"type":["int"],"align":["right"]},{"label":["Brewery_Name"],"name":[8],"type":["int"],"align":["right"]},{"label":["City"],"name":[9],"type":["int"],"align":["right"]},{"label":["State"],"name":[10],"type":["int"],"align":["right"]}],"data":[{"1":"0","2":"0","3":"62","4":"1005","5":"0","6":"0","7":"0","8":"0","9":"0","10":"0"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+<pre class="r"><code>#Create a dataframe to hold the column names with null values and the corresponding counts
+Missing_Values &lt;- data.frame(Measure = c(&quot;ABV_Missing&quot;,&quot;IBU_Missing&quot;, &quot;Total_#_Rows&quot;) , Number_of_Values = c(62,1005,2410))
+
+#Create a plot to show the number of nulls in each column compared to the total number of rows in the data set.
+ggplot(data= Missing_Values) + geom_bar(mapping = aes(x= Measure, y= Number_of_Values, fill= Measure), stat=&quot;identity&quot;) + xlab(&quot;Measure&quot;) +
+  ylab(&quot;Number of Values&quot;) + ggtitle(&quot;Number of missing values compared to the total number of rows&quot;)</code></pre>
+<p><img src="Unit_8_Case_Study_files/figure-html/unnamed-chunk-1-2.png" width="672" /></p>
+<pre class="r"><code>message(&quot;From the plot we see that the column ABV has 62 missing values and IBU has 1005 missing values.There&#39;s no other missing data.&quot;)</code></pre>
+<pre><code>## From the plot we see that the column ABV has 62 missing values and IBU has 1005 missing values.There&#39;s no other missing data.</code></pre>
+<pre class="r"><code>message(&quot; The number of missing values is huge so we cannot just filter out the data. We have to replace the missing values with some meaningful data.&quot;)   </code></pre>
+<pre><code>##  The number of missing values is huge so we cannot just filter out the data. We have to replace the missing values with some meaningful data.</code></pre>
+<pre class="r"><code>#Step 2 Address missing values in column ABV
+
+message(&quot; Factors that affect a beer&#39;s ABV and IBU - State the beer comes from and it&#39;s style&quot;)</code></pre>
+<pre><code>##  Factors that affect a beer&#39;s ABV and IBU - State the beer comes from and it&#39;s style</code></pre>
+<pre class="r"><code>#Looking at beer distribution by State
+ggplot(Beer_Breweries_raw) + geom_bar(mapping = aes(x=State, fill = State)) + 
+  ggtitle(&quot;Number of differnt Beers by State&quot;) +   ylab(&quot;Number of different beers&quot;)</code></pre>
+<p><img src="Unit_8_Case_Study_files/figure-html/unnamed-chunk-1-3.png" width="672" /></p>
+<pre class="r"><code>message(&quot;Looking at the beer distribution by State, we see that the data is not equally distributed. So, we do not want to consider State as a factor to calculate missing values. We will consider only Beer Category- based on beer style&quot;)</code></pre>
+<pre><code>## Looking at the beer distribution by State, we see that the data is not equally distributed. So, we do not want to consider State as a factor to calculate missing values. We will consider only Beer Category- based on beer style</code></pre>
+<pre class="r"><code>#Looking at ABV and IBU data to check if there are any outliers
+#ABV distribution
+boxplot(Beer_Breweries_raw$ABV,  staplewex = 1, main = &quot;Distribution of ABV&quot;, ylab = &quot;ABV&quot;)
+text(y = boxplot.stats(Beer_Breweries_raw$ABV)$stats, labels = boxplot.stats(Beer_Breweries_raw$ABV)$stats, x = 1.25)</code></pre>
+<p><img src="Unit_8_Case_Study_files/figure-html/unnamed-chunk-1-4.png" width="672" /></p>
+<pre class="r"><code>#IBU distribution
+boxplot(Beer_Breweries_raw$IBU,  staplewex = 1, main = &quot;Distribution of IBU&quot;, ylab = &quot;IBU&quot;)
+text(y = boxplot.stats(Beer_Breweries_raw$ABV)$stats, labels = boxplot.stats(Beer_Breweries_raw$ABV)$stats, x = 1.25)</code></pre>
+<p><img src="Unit_8_Case_Study_files/figure-html/unnamed-chunk-1-5.png" width="672" /></p>
+<pre class="r"><code>message(&quot;As the data has outliers and the mean is sensitive to outliers, we will replace the missing values by the corresponding median in each Beer Category&quot;)</code></pre>
+<pre><code>## As the data has outliers and the mean is sensitive to outliers, we will replace the missing values by the corresponding median in each Beer Category</code></pre>
+<pre class="r"><code>#Assigning Beer Categories: Read the Beer_Style and assign the following categories: IPA- if the column Beer Style has IPA in its name, else &#39;Other Ales&#39; if name has &#39;Ale&#39; in its name and assign &#39;Other&#39; to all the other types of beers. 
+Beer_Breweries_raw$Beer_Category &lt;- ifelse(str_detect(Beer_Breweries_raw$Beer_Style, &quot;IPA&quot;), &#39;IPA&#39;, ifelse(str_detect(Beer_Breweries_raw$Beer_Style, &quot;Ale&quot;),&#39;Other Ale&#39;,&#39;Other&#39;))
+
+#Calculate median ABV for each Beer categy.
+Median_ABV_by_St_IPAorAle &lt;- Beer_Breweries_raw%&gt;% group_by(Beer_Category) %&gt;% summarise(Median_ABV = median(ABV, na.rm=TRUE))
+#Join the Median_ABV data by State and Beer_Category with the Beer_Breweries_raw data set
+Beer_Breweries_raw_withMedianABV &lt;-left_join(Beer_Breweries_raw,Median_ABV_by_St_IPAorAle, by = c(&quot;Beer_Category&quot;) )
+
+# Create a new column ABV_New containing ABV values and replacing missing values by the above calculated median ABV
+Beer_Breweries_raw_withMedianABV$ABV_New &lt;- ifelse(is.na(Beer_Breweries_raw_withMedianABV$ABV), Beer_Breweries_raw_withMedianABV$Median_ABV, Beer_Breweries_raw_withMedianABV$ABV)
+
+#Calculate the median IBU grouping by Beer_Category.
+Median_IBU_by_St_IPAorAle_ABV_CAT &lt;- Beer_Breweries_raw_withMedianABV%&gt;% group_by( Beer_Category ) %&gt;% summarise(Median_IBU = median(IBU, na.rm=TRUE))
+
+##Join the Median_IBU data by State, IPA/Ale category and ABV category with the data set above
+Beer_Breweries_raw_withMedianABV_IBU &lt;-  left_join(Beer_Breweries_raw_withMedianABV,Median_IBU_by_St_IPAorAle_ABV_CAT, by = c(&quot;Beer_Category&quot;) )
+
+# Create a new column IBU_New containing IBU values and replacing missing values by the above calculated median IBU
+Beer_Breweries_raw_withMedianABV_IBU$IBU_New &lt;- ifelse(is.na(Beer_Breweries_raw_withMedianABV_IBU$IBU), Beer_Breweries_raw_withMedianABV_IBU$Median_IBU, Beer_Breweries_raw_withMedianABV$IBU)
+
+#Filter out the missing values and remove the redundant columns
+Beer_Breweries_Clean &lt;- filter(Beer_Breweries_raw_withMedianABV_IBU, !is.na(IBU_New)) %&gt;% select( -Median_ABV, -Median_IBU)
+
+# Step 5 Check the cleansed data to see if we still have any missing data. Look for ABV_New and IBU_New
+as.data.frame(lapply(Beer_Breweries_Clean,function(x) { length(which(is.na(x)))}))</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":["Beer_Name"],"name":[1],"type":["int"],"align":["right"]},{"label":["Beer_Id"],"name":[2],"type":["int"],"align":["right"]},{"label":["ABV"],"name":[3],"type":["int"],"align":["right"]},{"label":["IBU"],"name":[4],"type":["int"],"align":["right"]},{"label":["Brewery_Id"],"name":[5],"type":["int"],"align":["right"]},{"label":["Beer_Style"],"name":[6],"type":["int"],"align":["right"]},{"label":["Ounces"],"name":[7],"type":["int"],"align":["right"]},{"label":["Brewery_Name"],"name":[8],"type":["int"],"align":["right"]},{"label":["City"],"name":[9],"type":["int"],"align":["right"]},{"label":["State"],"name":[10],"type":["int"],"align":["right"]},{"label":["Beer_Category"],"name":[11],"type":["int"],"align":["right"]},{"label":["ABV_New"],"name":[12],"type":["int"],"align":["right"]},{"label":["IBU_New"],"name":[13],"type":["int"],"align":["right"]}],"data":[{"1":"0","2":"0","3":"62","4":"1005","5":"0","6":"0","7":"0","8":"0","9":"0","10":"0","11":"0","12":"0","13":"0"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+<pre class="r"><code>message(&quot;As we do not have any missing values in the columns ABV_New and IBU_new, Beer_Breweries_Clean is the dataset we&#39;ll be doing further analysis on using the columns ABV_New and IBU_New&quot;)</code></pre>
+<pre><code>## As we do not have any missing values in the columns ABV_New and IBU_new, Beer_Breweries_Clean is the dataset we&#39;ll be doing further analysis on using the columns ABV_New and IBU_New</code></pre>
+<pre class="r"><code>#Question 4.Compute the median alcohol content and international bitterness unit for each state. Plot a bar chart to compare.
+#Analysis on Cleansed data
+#Step 1 Calculate the median ABV by State
+#Step 1.1  Group by State and Summarise
+Answer4_Median_ABV &lt;- Beer_Breweries_Clean %&gt;%  group_by(State) %&gt;% 
+  summarise(Median = median(ABV_New, na.rm = TRUE))
+
+#Step 1.2  Convert ABV to percentage (multiple by 100) for a more clear plot
+Answer4_Median_ABV$Median = Answer4_Median_ABV$Median * 100
+
+#Step 1.3 Create a dataframe with columns Median (calculated above) and a column &#39;Measure&#39; with it&#39;s value as &#39;ABV%&#39;
+Answer4_Median_ABV$Measure = &quot;ABV%&quot;
+
+#Step 2 Calculate the median IBU by State
+#Step 2.1  Group by State and Summarise
+Answer4_Median_IBU &lt;- Beer_Breweries_Clean %&gt;%  group_by(State) %&gt;% 
+  summarise(Median = median(IBU_New, na.rm = TRUE))
+
+#Step 2.2 Create a dataframe with columns Median (calculated above) and a column &#39;Measure&#39; wit it&#39;s value as &#39;IBU&#39;
+Answer4_Median_IBU$Measure = &quot;IBU&quot;
+
+#Step 3 Combine the baove created data frame to have Median ABV% abd IBU in one data frame
+Answer4 &lt;- rbind(Answer4_Median_ABV,Answer4_Median_IBU )
+
+#Step 4 Plot the bar chart
+ggplot(Answer4) + geom_bar(mapping= aes(x=State, y=Median, fill = Measure), stat= &quot;identity&quot;, position = &quot;dodge&quot;) + ggtitle(&quot;Median ABV and IBU by each State&quot;)</code></pre>
+<p><img src="Unit_8_Case_Study_files/figure-html/unnamed-chunk-1-6.png" width="672" /></p>
+<pre class="r"><code>#Analysis on Raw data
+#Step 1 Calculate the median ABV by State
+#Step 1.1  Group by State and Summarise
+Answer4_Median_ABV &lt;- Beer_Breweries_Clean %&gt;%  group_by(State) %&gt;% 
+  summarise(Median = median(ABV, na.rm = TRUE))
+#Step 1.2  Convert ABV to percentage (multiple by 100) for a more clear plot
+Answer4_Median_ABV$Median = Answer4_Median_ABV$Median * 100
+#Step 1.3 Create a dataframe with columns Median (calculated above) and a column &#39;Measure&#39; wit it&#39;s value as &#39;ABV%&#39;
+Answer4_Median_ABV$Measure = &quot;ABV%&quot;
+
+#Step 2 Calculate the median IBU by State
+#Step 2.1  Group by State and Summarise
+Answer4_Median_IBU &lt;- Beer_Breweries_Clean %&gt;%  group_by(State) %&gt;% 
+  summarise(Median = median(IBU, na.rm = TRUE))
+
+#Step 2.2 Create a dataframe with columns Median (calculated above) and a column &#39;Measure&#39; wit it&#39;s value as &#39;IBU&#39;
+Answer4_Median_IBU$Measure = &quot;IBU&quot;
+
+#Step 3 Combine the baove created data frame to have Median ABV% abd IBU in one data frame
+Answer4 &lt;- rbind(Answer4_Median_ABV,Answer4_Median_IBU )
+
+#Step 4 Plot the bar chart
+ggplot(Answer4) + geom_bar(mapping= aes(x=State, y=Median, fill = Measure), stat= &quot;identity&quot;, position = &quot;dodge&quot;) + ggtitle(&quot;Median ABV and IBU by each State - Raw data&quot;)</code></pre>
+<pre><code>## Warning: Removed 1 rows containing missing values (geom_bar).</code></pre>
+<p><img src="Unit_8_Case_Study_files/figure-html/unnamed-chunk-1-7.png" width="672" /></p>
+<pre class="r"><code>message(&quot;As we see that in Cleansed data, WV has the highest Median IBU, whereas in the raw data ME has the highest median IBU. Let&#39;s deep dive into ME data&quot;)</code></pre>
+<pre><code>## As we see that in Cleansed data, WV has the highest Median IBU, whereas in the raw data ME has the highest median IBU. Let&#39;s deep dive into ME data</code></pre>
+<pre class="r"><code>#Select only the ME data from the entire data set
+Beer_Breweries_Clean_ME &lt;- filter(Beer_Breweries_Clean, State==&#39;ME&#39;) 
+#Check which rows have missing IBU
+Beer_Breweries_Clean_ME$IBU_Rows &lt;- ifelse(is.na(Beer_Breweries_Clean_ME$IBU), &quot;Missing&quot;, &quot;Has Data&quot;)
+
+#Plot a gar char of the missing data
+ggplot(Beer_Breweries_Clean_ME) + geom_bar(mapping= aes( x=IBU_Rows, fill=IBU_Rows)) + ggtitle(&quot;Comparing number of missing IBU Values for ME in raw data&quot;) +
+  xlab(&quot;IBU Missing or Not&quot;) + ylab(&quot;Total Rows&quot;)</code></pre>
+<p><img src="Unit_8_Case_Study_files/figure-html/unnamed-chunk-1-8.png" width="672" /></p>
+<pre class="r"><code>message(&quot; We see that out of 27 rows for ME data, 20 have missing data in the raw data set. Thus the cleansed data is more reliable&quot;)</code></pre>
+<pre><code>##  We see that out of 27 rows for ME data, 20 have missing data in the raw data set. Thus the cleansed data is more reliable</code></pre>
+<pre class="r"><code>#Question 5. Which state has the maximum alcoholic (ABV) beer? Which state has the most bitter (IBU) beer?
+#Solution
+#Max ABV
+#Calculate max ABV by each state
+max_alc_content &lt;-Beer_Breweries_Clean %&gt;% group_by(State) %&gt;% summarise(Max_Alcohol_Content = max(ABV_New, na.rm = TRUE))
+#Plot the data
+ggplot(max_alc_content) + geom_bar(mapping= aes(x= State,y= Max_Alcohol_Content, fill= State), stat= &quot;identity&quot;) + ggtitle(&quot;Maximum alcohol content in each state&quot;) + ylab(&quot;Max Alcohal Content&quot;)</code></pre>
+<p><img src="Unit_8_Case_Study_files/figure-html/unnamed-chunk-1-9.png" width="672" /></p>
+<pre class="r"><code>message(&quot; State with Maximum alcoholic beer is CO&quot;)</code></pre>
+<pre><code>##  State with Maximum alcoholic beer is CO</code></pre>
+<pre class="r"><code>#Max IBU: Most bitter beer
+#Calculate max IBU by each state
+max_IBU_content &lt;-Beer_Breweries_Clean %&gt;% group_by(State) %&gt;% summarise(Max_IBU = max(IBU_New, na.rm = TRUE))
+#Plot the data
+ggplot(max_IBU_content) + geom_bar(mapping= aes(x= State,y= Max_IBU, fill= State), stat= &quot;identity&quot;) + ggtitle(&quot;Maximum IBU in each State&quot;) + ylab(&quot;Max IBU Content&quot;)</code></pre>
+<p><img src="Unit_8_Case_Study_files/figure-html/unnamed-chunk-1-10.png" width="672" /></p>
+<pre class="r"><code>message(&quot; State with most bitter beer is OR&quot;)</code></pre>
+<pre><code>##  State with most bitter beer is OR</code></pre>
+<pre class="r"><code>#Question 6. Comment on the summary statistics and distribution of the ABV variable.
+#Run a summary on the cleansed ABV column 
+summary(Beer_Breweries_Clean$ABV_New)</code></pre>
+<pre><code>##    Min. 1st Qu.  Median    Mean 3rd Qu.    Max. 
+## 0.00100 0.05000 0.05600 0.05969 0.06700 0.12800</code></pre>
+<pre class="r"><code>#ABV Density Plot
+d &lt;- density(Beer_Breweries_Clean$ABV_New)
+plot(d, main = &quot;Distribution of ABV&quot; , xlab=&quot;ABV&quot;  )
+
+lines(density(Beer_Breweries_Clean$ABV_New), # density plot
+      lwd = 2, # thickness of line
+      col = &quot;chocolate3&quot;)
+abline(v = mean(Beer_Breweries_Clean$ABV_New),
+       col = &quot;royalblue&quot;,
+       lwd = 2)
+abline(v = median(Beer_Breweries_Clean$ABV_New),
+       col = &quot;red&quot;,
+       lwd = 2)
+legend(x = &quot;topright&quot;, # location of legend within plot area
+       c(&quot;Density plot&quot;, &quot;Mean=0.0597&quot;, &quot;Median=0.056&quot;),
+       col = c(&quot;chocolate3&quot;, &quot;royalblue&quot;, &quot;red&quot;),
+       lwd = c(2, 2, 2))</code></pre>
+<p><img src="Unit_8_Case_Study_files/figure-html/unnamed-chunk-1-11.png" width="672" /></p>
+<pre class="r"><code>#ABV box plot
+boxplot(Beer_Breweries_Clean$ABV,  staplewex = 1, main = &quot;Distribution of ABV&quot;, ylab = &quot;ABV&quot;)
+text(y = boxplot.stats(Beer_Breweries_Clean$ABV)$stats, labels = boxplot.stats(Beer_Breweries_Clean$ABV)$stats, x = 1.25)</code></pre>
+<p><img src="Unit_8_Case_Study_files/figure-html/unnamed-chunk-1-12.png" width="672" /></p>
+<pre class="r"><code>#Question# 7
+#Create a Scatter plot of the data by ABV vs. IBU
+ggplot( data = Beer_Breweries_Clean) + geom_point(mapping = aes(x = ABV_New, y = IBU_New)) + 
+  geom_smooth(mapping = aes(x = ABV_New, y = IBU_New)) + ggtitle(&quot;Relationship between ABV and IBU&quot;) +
+  xlab(&quot;ABV&quot;) + ylab(&quot;IBU&quot;)</code></pre>
+<pre><code>## `geom_smooth()` using method = &#39;gam&#39; and formula &#39;y ~ s(x, bs = &quot;cs&quot;)&#39;</code></pre>
+<p><img src="Unit_8_Case_Study_files/figure-html/unnamed-chunk-1-13.png" width="672" /></p>
+<pre class="r"><code>#Also find the correlation factor between ABV and IBU
+library(&quot;ggpubr&quot;)
+
+ggscatter(Beer_Breweries_Clean, x = &quot;ABV_New&quot;, y = &quot;IBU_New&quot;, 
+          add = &quot;reg.line&quot;, conf.int = TRUE, 
+          cor.coef = TRUE, cor.method = &quot;pearson&quot;,
+          xlab = &quot;Alcohol Content&quot;, ylab = &quot;Bitterness&quot;, color=&quot;blue&quot;) + 
+  ggtitle(&quot;Correlation between a beer&#39;s bitterness and it&#39;s alcoholic content&quot;)</code></pre>
+<p><img src="Unit_8_Case_Study_files/figure-html/unnamed-chunk-1-14.png" width="672" /></p>
+<pre class="r"><code>#Question 8: Find the correlation between ABV and IBU and IPA vs. Other Ales
+#Filter the data to include only IPA and Other Ales
+Beer_Breweries_Clean_8 &lt;- Beer_Breweries_Clean %&gt;% filter(Beer_Category %in% c(&quot;IPA&quot;, &quot;Other Ale&quot;)) 
+#Plot the data
+ggplot( data = Beer_Breweries_Clean_8) + geom_point(mapping = aes(x = ABV_New, y = IBU_New)) + 
+  geom_smooth(mapping = aes(x = ABV_New, y = IBU_New)) + xlab(&quot;ABV&quot;) + ylab(&quot;IBU&quot;) +
+  facet_wrap(~Beer_Category) + ggtitle(&quot;Correlation between a beer&#39;s IBU and ABV by beer category -IPA vs. Other Ales&quot;)</code></pre>
+<pre><code>## `geom_smooth()` using method = &#39;loess&#39; and formula &#39;y ~ x&#39;</code></pre>
+<p><img src="Unit_8_Case_Study_files/figure-html/unnamed-chunk-1-15.png" width="672" /></p>
+<pre class="r"><code>#Additional comparision of ABV and IBU by beer categories using ggpairs
+Beer_Breweries_Clean_8 %&gt;% select(ABV_New, IBU_New,Beer_Category) %&gt;% 
+  ggpairs(aes(color=Beer_Category) ,title=&quot;ABV vs. IBU by IPA vs. Other Ales&quot;)</code></pre>
+<pre><code>## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.</code></pre>
+<pre><code>## `stat_bin()` using `bins = 30`. Pick better value with `binwidth`.</code></pre>
+<p><img src="Unit_8_Case_Study_files/figure-html/unnamed-chunk-1-16.png" width="672" /></p>
+<pre class="r"><code>message(&quot;We can see from the plot that the IPAs have a higher median ABV and IBU compared to Other Ales. Most of the beers with higher ABV and IBU fall in IPA beer Category, whereas the Other Ales have comparatively lower ABV and IBU.&quot;)</code></pre>
+<pre><code>## We can see from the plot that the IPAs have a higher median ABV and IBU compared to Other Ales. Most of the beers with higher ABV and IBU fall in IPA beer Category, whereas the Other Ales have comparatively lower ABV and IBU.</code></pre>
+<pre class="r"><code>#Build KNN data model to analyze Beer Categories
+#Filter the data to limit it to IPA and Other Ale beer categories, and also select only the columns required for analysis
+Beer_Breweries_8_knn_data &lt;- Beer_Breweries_Clean  %&gt;% filter(Beer_Category %in% c(&quot;IPA&quot;, &quot;Other Ale&quot;)) %&gt;% select(Beer_Id,Beer_Name, ABV_New,IBU_New, Beer_Category)
+
+#Create a placeholder for Accuracy
+Acc= matrix(nrow=100, ncol=100)
+
+#For loop to create 100 different training and test data sets
+for(seed in 1:100) {
+  set.seed(seed)
+  trainIndices =  sample(seq(1:length(Beer_Breweries_8_knn_data$Beer_Category)), round(.7*length(Beer_Breweries_8_knn_data$Beer_Category)))
+  trainBew_Brewries = Beer_Breweries_8_knn_data[trainIndices,]
+  testBew_Brewries = Beer_Breweries_8_knn_data[-trainIndices,]
+#For loop to run KNN model for k=1-100  
+  for( i in 1:100) {
+    knn1 &lt;- knn(trainBew_Brewries[, c(3,4)],testBew_Brewries[, c(3,4)], trainBew_Brewries$Beer_Category, k = i )
+    t_knn &lt;- table(knn1,testBew_Brewries$Beer_Category )
+    #Create confusion matrix
+    Cm_Knn &lt;- confusionMatrix(t_knn)
+    #Captures Accuracy
+    Acc[seed,i] = Cm_Knn$overall[1]
+    
+  } 
+  
+}
+#Caluclate mean accuracy for each of the seed/knn iteritions
+mean_Acc = colMeans(Acc)
+#Plot the data by knnvalue and accuracy
+plot(seq(1,100,1),mean_Acc, type = &quot;l&quot;, xlab =&#39;k&#39;, main = &quot;Mean Accuracy by differnt values of k&quot; )</code></pre>
+<p><img src="Unit_8_Case_Study_files/figure-html/unnamed-chunk-1-17.png" width="672" /></p>
+<pre class="r"><code>#See where we had the max accuracy
+which.max(mean_Acc)</code></pre>
+<pre><code>## [1] 5</code></pre>
+<pre class="r"><code>#Print the max accuracy of the model
+max(mean_Acc)</code></pre>
+<pre><code>## [1] 0.9116522</code></pre>
+<pre class="r"><code>message(&quot;By running KNN for different samples and different values of K, we can see the knn model accuracy is highest at k=5. So performing internal validation at KNN at k=5&quot;)</code></pre>
+<pre><code>## By running KNN for different samples and different values of K, we can see the knn model accuracy is highest at k=5. So performing internal validation at KNN at k=5</code></pre>
+<pre class="r"><code>#Perform internal validation with knn with knn=3
+
+knn5 &lt;- knn.cv(Beer_Breweries_8_knn_data[, c(3,4)],Beer_Breweries_8_knn_data$Beer_Category, k=5 )
+
+t_knn &lt;- table(knn5,Beer_Breweries_8_knn_data$Beer_Category )
+
+Cm_Knn &lt;- confusionMatrix(t_knn)
+
+#Train the model with knn analysis
+model_knn &lt;- train(Beer_Breweries_8_knn_data[, c(3,4)], Beer_Breweries_8_knn_data$Beer_Category, method=&#39;knn&#39;)
+
+#Predict the beer categories using the model
+Beer_Breweries_8_knn_data$Knn_New &lt;-as.factor(predict(model_knn,Beer_Breweries_8_knn_data[, c(3,4)]))
+
+#Question 9: Check for misclassification of beers
+
+#Compare the Beer Category assignment by knn Model vs. the provided Budweiser data
+Mismatched_data &lt;- filter(Beer_Breweries_8_knn_data,Beer_Breweries_8_knn_data$Knn_New != Beer_Breweries_8_knn_data$Beer_Category)
+
+#No of rows of mismatched data
+nrow(Mismatched_data)</code></pre>
+<pre><code>## [1] 119</code></pre>
+<pre class="r"><code>#Plot the total mismatched data
+#Plor beer categories by Budweiser asssignment
+ggplot(Beer_Breweries_8_knn_data) + geom_bar(mapping = aes(x = Beer_Category, fill= Beer_Category)) +
+ylab(&quot;Number of Beers&quot;) + ggtitle(&quot;Beer Count by Budweiser Categories&quot;)</code></pre>
+<p><img src="Unit_8_Case_Study_files/figure-html/unnamed-chunk-1-18.png" width="672" /></p>
+<pre class="r"><code>#Plor beer categories by KNN asssignment
+ggplot(Beer_Breweries_8_knn_data) + geom_bar(mapping = aes(x = Knn_New, fill= Knn_New))+
+  ylab(&quot;Number of Beers&quot;) + xlab(&quot;Beer Category by KNN Classification&quot;)+ ggtitle(&quot;Beer Count by KNN Classification&quot;)</code></pre>
+<p><img src="Unit_8_Case_Study_files/figure-html/unnamed-chunk-1-19.png" width="672" /></p>
+<pre class="r"><code>#Find the number of beer misclassified as IPA
+nrow(filter(Mismatched_data, Beer_Category == &quot;IPA&quot; ))</code></pre>
+<pre><code>## [1] 68</code></pre>
+<pre class="r"><code>#Find the number of beer misclassified as Other Ales
+nrow(filter(Mismatched_data, Beer_Category != &quot;IPA&quot; ))</code></pre>
+<pre><code>## [1] 51</code></pre>
+<pre class="r"><code>message(&quot;We can see that around 68 beers were misclassified as &#39;IPA&#39; and 51 were misclassified as &#39;Other Ale&#39; &quot;)</code></pre>
+<pre><code>## We can see that around 68 beers were misclassified as &#39;IPA&#39; and 51 were misclassified as &#39;Other Ale&#39;</code></pre>
+<pre class="r"><code>#Print a few samples of the mismatched data
+#Top 6
+head(Beer_Breweries_8_knn_data)</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["Beer_Id"],"name":[1],"type":["int"],"align":["right"]},{"label":["Beer_Name"],"name":[2],"type":["fctr"],"align":["left"]},{"label":["ABV_New"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["IBU_New"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["Beer_Category"],"name":[5],"type":["chr"],"align":["left"]},{"label":["Knn_New"],"name":[6],"type":["fctr"],"align":["left"]}],"data":[{"1":"2265","2":"Devil's Cup","3":"0.066","4":"30","5":"Other Ale","6":"Other Ale","_rn_":"1"},{"1":"2264","2":"Rise of the Phoenix","3":"0.071","4":"70","5":"IPA","6":"IPA","_rn_":"2"},{"1":"2263","2":"Sinister","3":"0.090","4":"70","5":"IPA","6":"IPA","_rn_":"3"},{"1":"2262","2":"Sex and Candy","3":"0.075","4":"70","5":"IPA","6":"IPA","_rn_":"4"},{"1":"2260","2":"Lake Street Express","3":"0.045","4":"30","5":"Other Ale","6":"Other Ale","_rn_":"5"},{"1":"2258","2":"Jade","3":"0.055","4":"30","5":"Other Ale","6":"Other Ale","_rn_":"6"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+<pre class="r"><code>#Bottm 6
+tail(Beer_Breweries_8_knn_data)</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":[""],"name":["_rn_"],"type":[""],"align":["left"]},{"label":["Beer_Id"],"name":[1],"type":["int"],"align":["right"]},{"label":["Beer_Name"],"name":[2],"type":["fctr"],"align":["left"]},{"label":["ABV_New"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["IBU_New"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["Beer_Category"],"name":[5],"type":["chr"],"align":["left"]},{"label":["Knn_New"],"name":[6],"type":["fctr"],"align":["left"]}],"data":[{"1":"1316","2":"Colorojo Imperial Red Ale","3":"0.082","4":"30","5":"Other Ale","6":"Other Ale","_rn_":"1529"},{"1":"1045","2":"Wynkoop Pumpkin Ale","3":"0.055","4":"30","5":"Other Ale","6":"Other Ale","_rn_":"1530"},{"1":"928","2":"Belgorado","3":"0.067","4":"45","5":"IPA","6":"IPA","_rn_":"1531"},{"1":"807","2":"Rail Yard Ale","3":"0.052","4":"30","5":"Other Ale","6":"Other Ale","_rn_":"1532"},{"1":"145","2":"Silverback Pale Ale","3":"0.055","4":"40","5":"Other Ale","6":"Other Ale","_rn_":"1533"},{"1":"84","2":"Rail Yard Ale (2009)","3":"0.052","4":"30","5":"Other Ale","6":"Other Ale","_rn_":"1534"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+<pre class="r"><code>#Run a summary of the data set
+summary(Beer_Breweries_8_knn_data)</code></pre>
+<pre><code>##     Beer_Id                     Beer_Name       ABV_New       
+##  Min.   :   1.0   Nonstop Hef Hop    :  12   Min.   :0.02700  
+##  1st Qu.: 783.2   Dale&#39;s Pale Ale    :   6   1st Qu.:0.05200  
+##  Median :1450.0   Dagger Falls IPA   :   3   Median :0.06000  
+##  Mean   :1421.1   312 Urban Pale Ale :   2   Mean   :0.06123  
+##  3rd Qu.:2071.2   312 Urban Wheat Ale:   2   3rd Qu.:0.06900  
+##  Max.   :2692.0   Alter Ego          :   2   Max.   :0.09900  
+##                   (Other)            :1507                    
+##     IBU_New       Beer_Category           Knn_New   
+##  Min.   :  4.00   Length:1534        IPA      :554  
+##  1st Qu.: 30.00   Class :character   Other Ale:980  
+##  Median : 36.00   Mode  :character                  
+##  Mean   : 46.95                                     
+##  3rd Qu.: 70.00                                     
+##  Max.   :138.00                                     
+## </code></pre>
+<pre class="r"><code>Beer_Breweries_8_knn_data$Beer_Category&lt;- as.factor(Beer_Breweries_8_knn_data$Beer_Category)
+#colnames(Beer_Breweries_8_knn_data$Knn_New.predict(model_knn, Beer_Breweries_8_knn_data[, c(3, 4)])) &lt;- c(&quot;Beer_Category_knn&quot;)
+
+#Check Budweisers classification of beer from mismatched data
+filter(Beer_Breweries_Clean, Beer_Id %in% c(2602, 2105, 1021, 1930)) %&gt;% select(Beer_Id,Beer_Name,ABV_New,IBU_New,Beer_Style)</code></pre>
+<div data-pagedtable="false">
+<script data-pagedtable-source type="application/json">
+{"columns":[{"label":["Beer_Id"],"name":[1],"type":["int"],"align":["right"]},{"label":["Beer_Name"],"name":[2],"type":["fctr"],"align":["left"]},{"label":["ABV_New"],"name":[3],"type":["dbl"],"align":["right"]},{"label":["IBU_New"],"name":[4],"type":["dbl"],"align":["right"]},{"label":["Beer_Style"],"name":[5],"type":["fctr"],"align":["left"]}],"data":[{"1":"2602","2":"Citrafest","3":"0.050","4":"45","5":"American IPA"},{"1":"2105","2":"Even Keel","3":"0.038","4":"40","5":"American IPA"},{"1":"1930","2":"Summer Session Ale","3":"0.050","4":"61","5":"American Pale Wheat Ale"},{"1":"1021","2":"Watership Brown Ale","3":"0.072","4":"55","5":"American Brown Ale"}],"options":{"columns":{"min":{},"max":[10]},"rows":{"min":[10],"max":[10]},"pages":{}}}
+  </script>
+</div>
+<pre class="r"><code>#Check Beer categories for beers with ABV = 0.050 &amp; IBU_New = 45
+invaid_class &lt;- filter(Beer_Breweries_Clean, ABV_New == 0.050 &amp; IBU_New == 45 )%&gt;% select(Beer_Id,Beer_Name,ABV_New,IBU_New,Beer_Style,Beer_Category)
+
+#Plot the Budweised classification for beers with ABV = 0.050 &amp; IBU_New = 45 
+ggplot(invaid_class) + geom_bar(mapping= aes(x= Beer_Name, fill=Beer_Category)) + 
+  ggtitle(&quot;Budweiser&#39;s Classification of Beer with ABV= 0.050 and IBU = 45&quot;)</code></pre>
+<p><img src="Unit_8_Case_Study_files/figure-html/unnamed-chunk-1-20.png" width="672" /></p>
+<pre class="r"><code>message(&quot;We see that 2 of the 3 beers with ABV=0.050 and IBU=45 were classified at Other Ales, but one was classified as IPA&quot;)</code></pre>
+<pre><code>## We see that 2 of the 3 beers with ABV=0.050 and IBU=45 were classified at Other Ales, but one was classified as IPA</code></pre>
+<pre class="r"><code>nrow(Mismatched_data)</code></pre>
+<pre><code>## [1] 119</code></pre>
+<pre class="r"><code>message(&quot;In total there are 119 beers, out of 2410, which, according to the KNN model, seem to have been incorrectly categoried as IPA or Other Ales by Budweiser&quot;)</code></pre>
+<pre><code>## In total there are 119 beers, out of 2410, which, according to the KNN model, seem to have been incorrectly categoried as IPA or Other Ales by Budweiser</code></pre>
+<pre class="r"><code>message(&quot;Take away from the analysis: 
+Conflicting ‘Beer Style’ and ‘Expected Taste’ can affect the sale of the beer, so we need to correct the classifications.
+82 beers are candidates for re-classification for Beer Style based on their Alcohol content and bitterness levels. The list is included below.&quot;)</code></pre>
+<pre><code>## Take away from the analysis: 
+## Conflicting ‘Beer Style’ and ‘Expected Taste’ can affect the sale of the beer, so we need to correct the classifications.
+## 82 beers are candidates for re-classification for Beer Style based on their Alcohol content and bitterness levels. The list is included below.</code></pre>
+<pre class="r"><code>#Renaming columns for better clarity
+colnames(Mismatched_data) &lt;- c(&quot;Beer Id&quot;, &quot;Beer Name&quot;,&quot;ABV&quot;,&quot;IBU&quot;,&quot;Budweiser_Beer_Category&quot;, &quot;KNN_Predicted_Beer_Category&quot;)
+
+#List of 119 beers with conflicting beer_style
+print.data.frame(Mismatched_data)</code></pre>
+<pre><code>##     Beer Id                                Beer Name   ABV IBU
+## 1      1979                             Bitter Bitch 0.061  60
+## 2       531     Special Edition: Allies Win The War! 0.085  52
+## 3       173                            Back in Black 0.068  65
+## 4      2602                                Citrafest 0.050  45
+## 5       837                           Desolation IPA 0.062  43
+## 6       413                             Sky High Rye 0.060  55
+## 7      2105                                Even Keel 0.038  40
+## 8      1900                          Lost Sailor IPA 0.055  40
+## 9      1067                         Disconnected Red 0.067  85
+## 10     1456                  Powder Hound Winter Ale 0.072  60
+## 11      985                            Bark Bite IPA 0.066  50
+## 12     1898                      Blackmarket Rye IPA 0.075  35
+## 13     1850                   American India Red Ale 0.071  83
+## 14     2634                                 Nordskye 0.048  47
+## 15      692                     Blue Point White IPA 0.060  40
+## 16     1891                              Longhop IPA 0.042  30
+## 17     1279                      East India Pale Ale 0.068  47
+## 18      566                      East India Pale Ale 0.068  47
+## 19      383                Black Adder IBA (Current) 0.073  85
+## 20       28              Tule Duck Red Ale (Current) 0.062  42
+## 21     2227             Dark Voyage Black IPA (2013) 0.065  80
+## 22     1954                     Ghost Ship White IPA 0.056  55
+## 23     2094                                  Epitome 0.099 100
+## 24     1439                                Boat Beer 0.042  35
+## 25     1646                                 Catch 23 0.075  77
+## 26     2080                                 8 Barrel 0.080  69
+## 27     2380                                  IPA #11 0.057  58
+## 28     2013                        Wandering Pelican 0.082  65
+## 29      569                         Tocobaga Red Ale 0.072  75
+## 30     1393                       Cascadian Dark Ale 0.060  75
+## 31     1406                       Savannah Brown Ale 0.062  55
+## 32      556                        Eclipse Black IPA 0.077  71
+## 33     2029                               Tropicalia 0.065  65
+## 34     2292    Little Sister India Style Session Ale 0.043  60
+## 35     2089                               Trail Head 0.063  55
+## 36     1664                              Sobek &amp; Set 0.080  80
+## 37      935                          Fascist Pig Ale 0.080  72
+## 38     1223                              All Day IPA 0.047  42
+## 39      358                             Hop Knot IPA 0.067  47
+## 40      875                       Fremont Summer Ale 0.065  45
+## 41     2077                              No Wake IPA 0.072  50
+## 42     1490                        Point the Way IPA 0.059  60
+## 43     1296                        Point the Way IPA 0.059  60
+## 44      549                 Point the Way IPA (2012) 0.059  60
+## 45     2198              Goose Island India Pale Ale 0.059  55
+## 46     2313                        Mothman Black IPA 0.067  71
+## 47     2007                       Norm&#39;s Gateway IPA 0.040  55
+## 48     2026                                  Pursuit 0.070  40
+## 49     1653                  The Long Thaw White IPA 0.062  45
+## 50     1379                              Harpoon IPA 0.059  42
+## 51      770                       Harpoon IPA (2012) 0.059  42
+## 52      126                       Harpoon IPA (2010) 0.059  42
+## 53     2294                        The Power of Zeus 0.070  68
+## 54     1833                             Hop Farm IPA 0.058  45
+## 55     1605                      Festeroo Winter Ale 0.078  60
+## 56     2193                    Abominable Winter Ale 0.073  70
+## 57      916             Abominable Winter Ale (2012) 0.073  70
+## 58      729                           Midnight Ryder 0.065  80
+## 59      558                                 I-10 IPA 0.068  55
+## 60      759                   Double Haul IPA (2009) 0.065  65
+## 61      758                   Double Haul IPA (2006) 0.065  65
+## 62       86                          Double Haul IPA 0.065  65
+## 63     2460                           India Pale Ale 0.063  65
+## 64     1396                         Laughing Dog IPA 0.064  66
+## 65     1926                           Long Trail IPA 0.059  42
+## 66     1460           El Conquistador Extra Pale Ale 0.048  44
+## 67     2154                                   Aurora 0.067  75
+## 68     1492                            Blazing World 0.065 115
+## 69     1148                  Nebraska India Pale Ale 0.065  65
+## 70     2475                                Slow Ride 0.045  40
+## 71     2692                             Get Together 0.045  50
+## 72     1226                Three Skulls Ale Pale Ale 0.063  42
+## 73     2335                       Perpetual Darkness 0.092  72
+## 74     2302                     Pinner Throwback IPA 0.049  35
+## 75      585          HGH (Home Grown Hops): Part Duh 0.080  70
+## 76     1908                    Fresh Slice White IPA 0.055  45
+## 77     2630        98 Problems (Cuz A Hop Ain&#39;t One) 0.065  65
+## 78     2628                           Grapefruit IPA 0.050  35
+## 79      711                   Over the Rail Pale Ale 0.057  68
+## 80     1861                                   BLAKKR 0.099  85
+## 81     2515                           Pump House IPA 0.055  45
+## 82      945                          Long Hammer IPA 0.065  44
+## 83      583                          Long Hammer IPA 0.065  44
+## 84     2132                                      Dad 0.060  60
+## 85     1771                                 Lil SIPA 0.050  55
+## 86     1577                               12th Round 0.076  78
+## 87     1391                        Sanitas Black IPA 0.068  65
+## 88      967                                Black IPA 0.071  95
+## 89     1078                             Schlafly IPA 0.045  30
+## 90     1608                            Global Warmer 0.070  70
+## 91     1606                       Snow King Pale Ale 0.060  55
+## 92      995                               Winterfest 0.084  90
+## 93     1971                     Texas Pale Ale (TPA) 0.055  40
+## 94     1745                     Mississippi Fire Ant 0.080  80
+## 95     2387                       Pine Belt Pale Ale 0.065  45
+## 96       45                       Pine Belt Pale Ale 0.065  45
+## 97     2486                   Baby Daddy Session IPA 0.047  35
+## 98       90                       Third Eye Pale Ale 0.065  65
+## 99     1739                                   BLAKKR 0.099  85
+## 100    1242                                 Big Nose 0.073  50
+## 101    1749                                 Just IPA 0.046  45
+## 102    1912                              40 Mile IPA 0.060  50
+## 103    2617                              Citra Faced 0.055  64
+## 104     951                                    Alloy 0.058  36
+## 105    2444                            Nugget Nectar 0.075  93
+## 106     433                      Greenville Pale Ale 0.055  52
+## 107    2235                         Day Hike Session 0.041  41
+## 108    1661                            Trailhead ISA 0.048  48
+## 109     482 Trailhead India Style Session Ale (2011) 0.048  48
+## 110     861                            Cane and Ebel 0.070  68
+## 111    1925                       Trader Session IPA 0.040  42
+## 112    2190                     Campside Session IPA 0.045  50
+## 113    1932                     Thai Style White IPA 0.065  33
+## 114    1846                      Wachusett Light IPA 0.040  37
+## 115    1844                            Wachusett IPA 0.056  50
+## 116    1029               Wachusett Light IPA (2013) 0.040  37
+## 117    1550                       Charlie in the Rye 0.058  55
+## 118    2146                      #004 Session I.P.A. 0.048  38
+## 119    1513     Lights Out Vanilla Cream Extra Stout 0.077  30
+##     Budweiser_Beer_Category KNN_Predicted_Beer_Category
+## 1                 Other Ale                         IPA
+## 2                 Other Ale                         IPA
+## 3                 Other Ale                         IPA
+## 4                       IPA                   Other Ale
+## 5                       IPA                   Other Ale
+## 6                 Other Ale                         IPA
+## 7                       IPA                   Other Ale
+## 8                       IPA                   Other Ale
+## 9                 Other Ale                         IPA
+## 10                Other Ale                         IPA
+## 11                      IPA                   Other Ale
+## 12                      IPA                   Other Ale
+## 13                Other Ale                         IPA
+## 14                      IPA                   Other Ale
+## 15                      IPA                   Other Ale
+## 16                      IPA                   Other Ale
+## 17                      IPA                   Other Ale
+## 18                      IPA                   Other Ale
+## 19                Other Ale                         IPA
+## 20                Other Ale                         IPA
+## 21                Other Ale                         IPA
+## 22                      IPA                   Other Ale
+## 23                Other Ale                         IPA
+## 24                      IPA                   Other Ale
+## 25                Other Ale                         IPA
+## 26                Other Ale                         IPA
+## 27                      IPA                   Other Ale
+## 28                Other Ale                         IPA
+## 29                Other Ale                         IPA
+## 30                Other Ale                         IPA
+## 31                Other Ale                         IPA
+## 32                Other Ale                         IPA
+## 33                      IPA                   Other Ale
+## 34                      IPA                   Other Ale
+## 35                Other Ale                         IPA
+## 36                Other Ale                         IPA
+## 37                Other Ale                         IPA
+## 38                      IPA                   Other Ale
+## 39                      IPA                   Other Ale
+## 40                Other Ale                         IPA
+## 41                      IPA                   Other Ale
+## 42                      IPA                   Other Ale
+## 43                      IPA                   Other Ale
+## 44                      IPA                   Other Ale
+## 45                      IPA                   Other Ale
+## 46                Other Ale                         IPA
+## 47                      IPA                   Other Ale
+## 48                      IPA                   Other Ale
+## 49                      IPA                   Other Ale
+## 50                      IPA                   Other Ale
+## 51                      IPA                   Other Ale
+## 52                      IPA                   Other Ale
+## 53                Other Ale                         IPA
+## 54                      IPA                   Other Ale
+## 55                Other Ale                         IPA
+## 56                Other Ale                         IPA
+## 57                Other Ale                         IPA
+## 58                Other Ale                         IPA
+## 59                      IPA                   Other Ale
+## 60                      IPA                   Other Ale
+## 61                      IPA                   Other Ale
+## 62                      IPA                   Other Ale
+## 63                      IPA                   Other Ale
+## 64                      IPA                   Other Ale
+## 65                      IPA                   Other Ale
+## 66                Other Ale                         IPA
+## 67                Other Ale                         IPA
+## 68                Other Ale                         IPA
+## 69                      IPA                   Other Ale
+## 70                      IPA                   Other Ale
+## 71                      IPA                   Other Ale
+## 72                Other Ale                         IPA
+## 73                Other Ale                         IPA
+## 74                      IPA                   Other Ale
+## 75                Other Ale                         IPA
+## 76                      IPA                   Other Ale
+## 77                      IPA                   Other Ale
+## 78                      IPA                   Other Ale
+## 79                Other Ale                         IPA
+## 80                Other Ale                         IPA
+## 81                      IPA                   Other Ale
+## 82                      IPA                   Other Ale
+## 83                      IPA                   Other Ale
+## 84                Other Ale                         IPA
+## 85                      IPA                   Other Ale
+## 86                Other Ale                         IPA
+## 87                Other Ale                         IPA
+## 88                Other Ale                         IPA
+## 89                      IPA                   Other Ale
+## 90                Other Ale                         IPA
+## 91                Other Ale                         IPA
+## 92                Other Ale                         IPA
+## 93                      IPA                   Other Ale
+## 94                Other Ale                         IPA
+## 95                Other Ale                         IPA
+## 96                Other Ale                         IPA
+## 97                      IPA                   Other Ale
+## 98                      IPA                   Other Ale
+## 99                Other Ale                         IPA
+## 100                     IPA                   Other Ale
+## 101                     IPA                   Other Ale
+## 102                     IPA                   Other Ale
+## 103               Other Ale                         IPA
+## 104                     IPA                   Other Ale
+## 105               Other Ale                         IPA
+## 106               Other Ale                         IPA
+## 107                     IPA                   Other Ale
+## 108                     IPA                   Other Ale
+## 109                     IPA                   Other Ale
+## 110               Other Ale                         IPA
+## 111                     IPA                   Other Ale
+## 112                     IPA                   Other Ale
+## 113                     IPA                   Other Ale
+## 114                     IPA                   Other Ale
+## 115                     IPA                   Other Ale
+## 116                     IPA                   Other Ale
+## 117                     IPA                   Other Ale
+## 118                     IPA                   Other Ale
+## 119                     IPA                   Other Ale</code></pre>
+</div>
+<div id="take-away-from-the-analysis" class="section level2">
+<h2>Take away from the analysis</h2>
+<p>Conflicting ‘Beer Style’ and ‘Expected Taste’ can affect the sale of the beer, so we need to correct the classifications.</p>
+<p>119 beers are candidates for re-classification for Beer Style based on their Alcohol content and bitterness levels.</p>
+</div>
+
+
+
+
+</div>
+
+<script>
+
+// add bootstrap table styles to pandoc tables
+function bootstrapStylePandocTables() {
+  $('tr.header').parent('thead').parent('table').addClass('table table-condensed');
+}
+$(document).ready(function () {
+  bootstrapStylePandocTables();
+});
+
+
+</script>
+
+<!-- tabsets -->
+
+<script>
+$(document).ready(function () {
+  window.buildTabsets("TOC");
+});
+
+$(document).ready(function () {
+  $('.tabset-dropdown > .nav-tabs > li').click(function () {
+    $(this).parent().toggleClass('nav-tabs-open')
+  });
+});
+</script>
+
+<!-- code folding -->
+
+
+<!-- dynamically load mathjax for compatibility with self-contained -->
+<script>
+  (function () {
+    var script = document.createElement("script");
+    script.type = "text/javascript";
+    script.src  = "https://mathjax.rstudio.com/latest/MathJax.js?config=TeX-AMS-MML_HTMLorMML";
+    document.getElementsByTagName("head")[0].appendChild(script);
+  })();
+</script>
+
+</body>
+</html>
