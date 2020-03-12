@@ -1,0 +1,1013 @@
+---
+title: "CaseStudy2_MSDS"
+author: "Simerpreet Reddy"
+date: "March 11, 2020"
+output:
+  word_document: default
+  pdf_document: default
+  html_document: default
+---
+Executive Summary:
+At DDS Anlytics we specialize in Talent Management. Using our cutting edge technology and Frito Lay's employee data, we have developed a Talent Management solution that can help Frito Lay to identify and then control Attrition, manage employee training, analytically define salary and assess any job role related trends.
+
+Purpose:
+The purpose of this document is to provide analytical insights into Frito Lay's employee attrition data and to also provide insights on job role related trends.
+This document also provides the models to predict attrition and salary of employees. 
+
+This makes a great tool for Talent Management. 
+
+The presenation for this analysis can be watched at this youtube video link: https://www.youtube.com/watch?v=SBntBfO1AiM&feature=youtu.be 
+
+
+
+Job Role trends and Top attrition factors
+```{r, message=F, warning=F}
+#Include necessary libraries
+library(tidyverse)
+library(ggplot2)
+library(caret)
+library(tidyr)
+library(dplyr)
+library(e1071)
+library(class)
+library(gridExtra)
+
+#Read source file
+CaseStudy2_raw_hist <- read.csv(file.choose(), header = TRUE, sep=',')
+
+#nrow(CaseStudy2_raw_hist)
+#head(CaseStudy2_raw_hist)
+
+#Rename columns for readability
+colnames(CaseStudy2_raw_hist) <- c("ID",	"Age",	"Attrition",	"BusinessTravel",	"DailyRate",	"Department",	"DistanceFromHome",	"Education",	"EducationField",	"EmployeeCount",	"EmployeeNumber",	"EnvironmentSatisfaction",	"Gender",	"HourlyRate",	"JobInvolvement",	"JobLevel",	"JobRole",	"JobSatisfaction",	"MaritalStatus",	"MonthlyIncome",	"MonthlyRate",	"NumCompaniesWorked",	"Over18",	"OverTime",	"PercentSalaryHike",	"PerformanceRating",	"RelationshipSatisfaction",	"StandardHours",	"StockOptionLevel",	"TotalWorkingYears",	"TrainingTimesLastYear",	"WorkLifeBalance",	"YearsAtCompany",	"YearsInCurrentRole",	"YearsSinceLastPromotion",	"YearsWithCurrManager")
+
+#Attrition Analysis
+#Plot the distribution of data by Attrition
+att_cnt <- data.frame("Measure" = c("Yes","No"), 
+                      "Counts"= c(nrow(CaseStudy2_raw_hist %>% filter(Attrition=='Yes')),nrow(CaseStudy2_raw_hist %>% filter(Attrition=='No'))                                  ))
+
+p_Att<- ggplot(data=att_cnt,mapping=aes(x=Measure, y= Counts, fill=Measure)) + geom_bar(stat="identity") + 
+  ggtitle("Distribution of data by Attrition") +
+  geom_text(aes(label = Counts), nudge_y = -10, color = "black") + xlab("Attrition") + ylab("Number of employees")
+
+p_Att
+
+#Filter out the row with null values
+CaseStudy2_raw_hist <- CaseStudy2_raw_hist %>% filter(ID!=870)
+#summary(CaseStudy2_raw_hist)
+#str(CaseStudy2_raw_hist)
+
+#Cut the differemt continous variable into groups/categories to be able to build histograms
+#summary(CaseStudy2_raw_hist$Age)
+CaseStudy2_raw_hist$Age_Grp <- cut(CaseStudy2_raw_hist$Age, breaks = c(17,21,30,35,43,61), labels = c("18-21","21-30" ,"30-35", "35-43", "43-60"))
+
+#CaseStudy2_raw_hist$Age_Grp_Cat <- cut(CaseStudy2_raw_hist$Age, breaks = c(17,21,30,35,43,61), labels = c(1,2 ,3, 4, 5))
+#summarise(CaseStudy2_raw_hist$Age_Grp_Cat)
+
+#summary(CaseStudy2_raw_hist$DistanceFromHome)
+CaseStudy2_raw_hist$DistfrmHome <- cut(CaseStudy2_raw_hist$DistanceFromHome, breaks = c(0,2,7,10,14,20,30), labels = c("0-2","2-7" ,"7-10", "10-14", "14-20","20-30"))
+#summary(CaseStudy2_raw_hist$DistfrmHome)
+
+#summary(CaseStudy2_raw_hist$MonthlyIncome)
+CaseStudy2_raw_hist$MonthlyIncome_f <- cut(CaseStudy2_raw_hist$MonthlyIncome, breaks = c(1080,2838,4950,8189,20000), labels = c("1080-2838","2838-4950" ,"4950-8189", "8189-20000"))
+#summary(CaseStudy2_raw_hist$MonthlyIncome_f)
+
+#summary(CaseStudy2_raw_hist$MonthlyRate)	
+CaseStudy2_raw_hist$MonthlyRate_f <- cut(CaseStudy2_raw_hist$MonthlyRate, breaks = c(2093,8059,14074,20460,26998), labels = c("2093-8059","8059-14074" ,"14074-20460", "20460-26998"))
+#summary(CaseStudy2_raw_hist$MonthlyRate_f)	
+
+#summary(CaseStudy2_raw_hist$NumCompaniesWorked)
+CaseStudy2_raw_hist$NumCompaniesWorked_f <- cut(CaseStudy2_raw_hist$NumCompaniesWorked, breaks = c(-1,0,2,4,10), labels = c("0","1-2" ,"3-4", "5-10"))
+#summary(CaseStudy2_raw_hist$NumCompaniesWorked_f)
+
+#summary(CaseStudy2_raw_hist$TotalWorkingYears)
+CaseStudy2_raw_hist$TotalWorkingYears_f <- cut(CaseStudy2_raw_hist$TotalWorkingYears, breaks = c(-1,1,6,10,15,41), labels = c("0","1-6","6-10" ,"10-15", "15-41"))
+#summary(CaseStudy2_raw_hist$TotalWorkingYears_f	)
+
+
+#summary(CaseStudy2_raw_hist$TrainingTimesLastYear)
+CaseStudy2_raw_hist$TrainingTimesLastYear_f <- cut(CaseStudy2_raw_hist$TrainingTimesLastYear, breaks = c(-1,1,2,3,6), labels = c("0-1","2","2-3" ,"3-7"))
+#summary(CaseStudy2_raw_hist$TrainingTimesLastYear_f)
+#select(CaseStudy2_raw_hist, TrainingTimesLastYear,TrainingTimesLastYear_f)
+
+#summary(CaseStudy2_raw_hist$YearsAtCompany	)
+CaseStudy2_raw_hist$YearsAtCompany_f <- cut(CaseStudy2_raw_hist$YearsAtCompany, breaks = c(-1,1,3,5,10,41), labels = c("0","1-3" ,"3-5", "5-10", "10-41"))
+#summary(CaseStudy2_raw_hist$YearsAtCompany_f	)
+
+#summary(CaseStudy2_raw_hist$YearsInCurrentRole	)
+CaseStudy2_raw_hist$YearsInCurrentRole_f <- cut(CaseStudy2_raw_hist$YearsInCurrentRole, breaks = c(-1,2,3,7,19), labels = c("0-2" ,"2-3", "3-7", "7-19"))
+#select(CaseStudy2_raw_hist, YearsInCurrentRole,YearsInCurrentRole_f)
+#summary(CaseStudy2_raw_hist$YearsInCurrentRole_f)
+
+#summary(CaseStudy2_raw_hist$YearsSinceLastPromotion)
+CaseStudy2_raw_hist$YearsSinceLastPromotion_f <- cut(CaseStudy2_raw_hist$YearsSinceLastPromotion, breaks = c(-1,0,1,3,16), labels = c("0","1","2-3" ,"3-15"))
+#summary(CaseStudy2_raw_hist$YearsSinceLastPromotion_f)
+#select(CaseStudy2_raw_hist, YearsSinceLastPromotion,YearsSinceLastPromotion_f)
+
+#summary(CaseStudy2_raw_hist$YearsWithCurrManager)
+CaseStudy2_raw_hist$YearsWithCurrManager_f <- cut(CaseStudy2_raw_hist$YearsWithCurrManager, breaks = c(-1,1,3,7,18), labels = c("0-1","2-3" ,"3-7", "7-17"))
+#summary(CaseStudy2_raw_hist$YearsWithCurrManager_f)
+
+#Convert numberic columns into factors
+CaseStudy2_raw_hist$JobInvolvement <- as.factor(CaseStudy2_raw_hist$JobInvolvement)
+CaseStudy2_raw_hist$JobLevel <- as.factor(CaseStudy2_raw_hist$JobLevel)
+CaseStudy2_raw_hist$EnvironmentSatisfaction <- as.factor(CaseStudy2_raw_hist$EnvironmentSatisfaction)
+CaseStudy2_raw_hist$Education <- as.factor(CaseStudy2_raw_hist$Education)
+CaseStudy2_raw_hist$EnvironmentSatisfaction<- as.factor(CaseStudy2_raw_hist$EnvironmentSatisfaction)
+CaseStudy2_raw_hist$JobInvolvement<- as.factor(CaseStudy2_raw_hist$JobInvolvement)
+#CaseStudy2_raw_hist$JobLevel<- as.factor(CaseStudy2_raw_hist$JobLevel)
+CaseStudy2_raw_hist$JobSatisfaction<- as.factor(CaseStudy2_raw_hist$JobSatisfaction)
+CaseStudy2_raw_hist$RelationshipSatisfaction<- as.factor(CaseStudy2_raw_hist$RelationshipSatisfaction)
+CaseStudy2_raw_hist$StockOptionLevel<- as.factor(CaseStudy2_raw_hist$StockOptionLevel)
+CaseStudy2_raw_hist$WorkLifeBalance<- as.factor(CaseStudy2_raw_hist$WorkLifeBalance)
+
+#Filter out rows where Attrition=Yes
+CaseStudy2_raw_hist_ATT_Y <- CaseStudy2_raw_hist %>% filter(CaseStudy2_raw_hist$Attrition=='Yes')
+
+#Age_group_by <- group_by(CaseStudy2_raw_hist_ATT_Y,Age_Grp_Cat)
+#Perc_Att <- summarise(Age_group_by, perc_att= 
+#plot(CaseStudy2_raw_hist["Attrition","Age_Grp"])
+#CaseStudy2_raw_hist %>% filter(is.na(Age_Grp))
+
+#Plot different measures to see how much they contributed to attrition
+p_Age_grp <- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= Age_Grp), position="dodge") + ggtitle("Attrition counts in each age group")
+p_BusinessTravel <- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= BusinessTravel), position="dodge") + ggtitle("Attrition counts by BusinessTravel group")
+p_Department<- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= Department), position="dodge") + ggtitle("Attrition counts in each Department")
+p_EducationField<- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= EducationField), position="dodge") + ggtitle("Attrition counts in each EducationField")
+p_Gender<- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= Gender), position="dodge") + ggtitle("Attrition counts in each Gender")
+p_JobRole<- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= JobRole), position="dodge") + ggtitle("Attrition counts in each JobRole")
+p_MaritalStatus<- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= MaritalStatus), position="dodge") + ggtitle("Attrition counts in each MaritalStatus")
+p_OverTime<- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= OverTime), position="dodge") + ggtitle("Attrition counts in each OverTime") 
+p_JobInvolvement<- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= JobInvolvement), position="dodge") + ggtitle("Attrition counts in each JobInvolvement")
+p_DistfrmHome <- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= DistfrmHome), position="dodge") + ggtitle("Attrition counts in each DistfrmHome category")
+p_Education <- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= Education), position="dodge") + ggtitle("Attrition counts in each Education level")
+p_EnvironmentSatisfaction <- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= EnvironmentSatisfaction), position="dodge") + ggtitle("Attrition counts in each EnvironmentSatisfaction level")
+p_JobInvolvement<- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= JobInvolvement), position="dodge") + ggtitle("Attrition counts in each JobInvolvement")
+p_JobLevel<- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= JobLevel), position="dodge") + ggtitle("Attrition counts in each JobLevel")
+p_JobSatisfaction<- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= JobSatisfaction), position="dodge") + ggtitle("Attrition counts in each JobSatisfaction")
+p_RelationshipSatisfaction<- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= RelationshipSatisfaction), position="dodge") + ggtitle("Attrition counts in each RelationshipSatisfaction level")
+p_StockOptionLevel<- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= StockOptionLevel), position="dodge") + ggtitle("Attrition counts in each StockOptionLevel")
+p_WorkLifeBalance<- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= WorkLifeBalance), position="dodge") + ggtitle("Attrition counts in each WorkLifeBalance")
+p_MonthlyIncome_f<- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= MonthlyIncome_f), position="dodge") + ggtitle("Attrition counts in each MonthlyIncome category")
+p_MonthlyRate_f<- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= MonthlyRate_f), position="dodge") + ggtitle("Attrition counts in each MonthlyRate category")
+p_NumCompaniesWorked_f<- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= NumCompaniesWorked_f), position="dodge") + ggtitle("Attrition counts in each NumCompaniesWorked category")
+p_TotalWorkingYears_f<- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= TotalWorkingYears_f), position="dodge") + ggtitle("Attrition counts in each TotalWorkingYears category")
+p_TrainingTimesLastYear_f<- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= TrainingTimesLastYear_f), position="dodge") + ggtitle("Attrition counts in each TrainingTimesLastYear category")
+p_YearsAtCompany_f<- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= YearsAtCompany_f), position="dodge") + ggtitle("Attrition counts in each YearsAtCompany category")
+p_YearsInCurrentRole_f<- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= YearsInCurrentRole_f), position="dodge") + ggtitle("Attrition counts in each YearsInCurrentRole category")
+p_YearsSinceLastPromotion_f<- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= YearsSinceLastPromotion_f), position="dodge") + ggtitle("Attrition counts in each YearsSinceLastPromotion category")
+p_YearsWithCurrManager_f<- ggplot(data=CaseStudy2_raw_hist_ATT_Y) + geom_bar(mapping=aes(x=Attrition, fill= YearsWithCurrManager_f), position="dodge") + ggtitle("Attrition counts in each YearsWithCurrManager category")
+
+#grid.arrange(p_Age_grp,p_BusinessTravel,p_Department,p_EducationField,p_Gender,p_JobRole,p_MaritalStatus,p_OverTime,p_JobInvolvement,ncol = 3, nrow=3)
+#grid.arrange(p_DistfrmHome,p_Education,p_EnvironmentSatisfaction,p_JobInvolvement, p_JobLevel,p_JobSatisfaction,p_RelationshipSatisfaction,p_StockOptionLevel,p_WorkLifeBalance,ncol = 3, nrow=3)
+#grid.arrange(p_MonthlyIncome_f,p_MonthlyRate_f,p_NumCompaniesWorked_f,p_TrainingTimesLastYear_f,p_YearsAtCompany_f,p_YearsInCurrentRole_f,p_YearsSinceLastPromotion_f,p_YearsWithCurrManager_f,ncol = 3, nrow=3)
+
+grid.arrange(p_Age_grp,p_BusinessTravel,ncol = 2, nrow=1)
+grid.arrange(p_Department,p_EducationField, ncol = 2, nrow=1)
+grid.arrange(p_Gender,p_JobRole,ncol = 2, nrow=1)
+grid.arrange(p_MaritalStatus,p_OverTime,ncol = 2, nrow=1)
+grid.arrange(p_JobInvolvement,p_DistfrmHome,ncol = 2, nrow=1)
+grid.arrange(p_Education,p_EnvironmentSatisfaction,ncol = 2, nrow=1)
+grid.arrange(p_JobInvolvement, p_JobLevel,ncol = 2, nrow=1)
+grid.arrange(p_JobSatisfaction,p_RelationshipSatisfaction, ncol = 2, nrow=1)
+grid.arrange(p_StockOptionLevel,p_WorkLifeBalance,ncol = 2, nrow=1)
+grid.arrange(p_MonthlyIncome_f,p_MonthlyRate_f,ncol = 2, nrow=1)
+grid.arrange(p_NumCompaniesWorked_f,p_TrainingTimesLastYear_f,ncol = 2, nrow=1)
+grid.arrange(p_YearsAtCompany_f,p_YearsInCurrentRole_f,ncol = 2, nrow=1)
+grid.arrange(p_YearsSinceLastPromotion_f,p_YearsWithCurrManager_f,ncol = 2, nrow=1)
+
+msg <- "We see that for a lot of measures, certain categories standout when seeing only the attirion data. \n Out of all the measures, the following measures made for more than 75 out of total 141 records where attrition=Yes.\n MaritalStatus=Single\n Dept=RnD \n Overtime=Yes\n WorkLifeBalance=3 \n Job_Level=1 \n Gender=Male \n YrsInCurrentRole=0-2 \n Business Travel=Travel Rarely \n StockOption=0 \n Let's study them all in detail"
+strsplit(msg,"\n")
+
+Total_Att <-nrow(CaseStudy2_raw_hist_ATT_Y)
+Att_Y_BusinessTravel_Travel_Rarely <-   round(((nrow(CaseStudy2_raw_hist_ATT_Y %>% filter(BusinessTravel=='Travel_Rarely')))/Total_Att)*100,2)
+Att_Y_Department_RnD <-  round( ((nrow(CaseStudy2_raw_hist_ATT_Y %>% filter(Department=='Research & Development')))/Total_Att)*100,2)
+Att_Y_Gender_M  <-    round(((nrow(CaseStudy2_raw_hist_ATT_Y %>% filter(Gender=='Male')))/Total_Att)*100,2)
+Att_Y_Overtime_Y <-   round( ((nrow(CaseStudy2_raw_hist_ATT_Y %>% filter(OverTime=='Yes')))/Total_Att)*100,2)
+Att_Y_Marital_Status_S <-    round(((nrow(CaseStudy2_raw_hist_ATT_Y %>% filter(MaritalStatus=='Single')))/Total_Att)*100,2)
+Att_Y_Job_Level_1 <-    round(((nrow(CaseStudy2_raw_hist_ATT_Y %>% filter(JobLevel=='1')))/Total_Att)*100,2)
+Att_Y_Stock_Option_0 <-    round(((nrow(CaseStudy2_raw_hist_ATT_Y %>% filter(StockOptionLevel=='0')))/Total_Att)*100,2)
+Att_Y_WrrkLB_3 <-    round(((nrow(CaseStudy2_raw_hist_ATT_Y %>% filter(WorkLifeBalance=='3')))/Total_Att)*100,2)
+Att_Y_YearsInCurrentRole_0_2 <-round(((nrow(CaseStudy2_raw_hist_ATT_Y %>% filter(YearsInCurrentRole =="0" | YearsInCurrentRole =="1" | YearsInCurrentRole =="2"  )))/Total_Att)*100,2)
+Att_Y_JobInvolvement_3 <-round(((nrow(CaseStudy2_raw_hist_ATT_Y %>% filter(JobInvolvement =="3" )))/Total_Att)*100,2)
+Att_Y_p_MonthlyIncome_f_1080_2838 <-round(((nrow(CaseStudy2_raw_hist_ATT_Y %>% filter(MonthlyIncome_f =="1080-2838" | YearsInCurrentRole =="1" | YearsInCurrentRole =="2"  )))/Total_Att)*100,2)
+
+
+Top_Att_Measures <- data.frame("Measure_Name" = c("BusinessTravel=Travel Rarely", "Department=RnD","Gender=Male","Overtime=Yes", "MaritalStatus=Single", "Job_Level=1", "StockOption=0",
+                                                  "WorkLifeBalance=3","YearsInCurrentRole=0-2","JobInvolvement=3","MonthlyIncome=1080-2838" ), 
+"Att_perc"= c(Att_Y_BusinessTravel_Travel_Rarely,Att_Y_Department_RnD,Att_Y_Gender_M,Att_Y_Overtime_Y,Att_Y_Marital_Status_S,
+              Att_Y_Job_Level_1,Att_Y_Stock_Option_0,Att_Y_WrrkLB_3 ,Att_Y_YearsInCurrentRole_0_2,Att_Y_JobInvolvement_3,Att_Y_p_MonthlyIncome_f_1080_2838))
+
+
+positions=c("JobInvolvement=3","MaritalStatus=Single","Department=RnD","Overtime=Yes","WorkLifeBalance=3","MonthlyIncome=1080-2838" ,"Job_Level=1","Gender=Male","YearsInCurrentRole=0-2","BusinessTravel=Travel Rarely","StockOption=0")
+ggplot(data=Top_Att_Measures,mapping=aes(y=Att_perc, x= Measure_Name, fill=Measure_Name)) + geom_bar( stat='identity',show.legend = FALSE) +
+    geom_text(aes(label = Att_perc), nudge_y = -3, color = "black") + scale_x_discrete(limits = positions) +
+  ggtitle("Chart shows what percent of each factor contributed to total attrition") + 
+  xlab("") +ylab("Percent of Total Attrition across the Org") +
+  coord_flip() 
+
+
+print("Conclusion: To control Attrition, we should start by focussing on employees who fall in following categories: 1) Stock Option Level=0, 2) Those who go rarely on a business travel 3) 0-2 years in their current role")
+
+
+
+
+# 2 Attrition Analysis by Department
+#Divide data by department
+data_dept_Sales <- CaseStudy2_raw_hist %>% filter(Department=='Sales')
+data_dept_HR <- CaseStudy2_raw_hist %>% filter(Department=='Human Resources')
+data_dept_RnD <- CaseStudy2_raw_hist %>% filter(Department=='Research & Development')
+#nrow(data_dept_Sales)
+#nrow(data_dept_HR)
+#nrow(data_dept_RnD)
+
+#Calculate total attrition and attrition % in each department
+#Calculate total attrition in the entire data set
+Cnt_Att_Yes <- nrow(CaseStudy2_raw_hist %>% filter(Attrition=="Yes"))
+Cnt_Total <-nrow(CaseStudy2_raw_hist)
+Attrition_Perc <- round((Cnt_Att_Yes/Cnt_Total)*100,0)
+
+Cnt_Att_Yes_Sales <- nrow(data_dept_Sales %>% filter(Attrition=="Yes"))
+Cnt_Total_Sales <-nrow(data_dept_Sales)
+Cnt_Total_Sales_Perc <- round((Cnt_Total_Sales/Cnt_Total)*100,0)
+Attrition_Perc_Sales <- round((Cnt_Att_Yes_Sales/Cnt_Total_Sales)*100,0)
+Attrition_Perc_Sales  #21.61
+Overall_Attrition_Perc_Sales <- round((Cnt_Att_Yes_Sales/Cnt_Att_Yes)*100,0)
+
+Cnt_Att_Yes_HR <- nrow(data_dept_HR %>% filter(Attrition=="Yes"))
+Cnt_Total_HR <-nrow(data_dept_HR)
+Cnt_Total_HR_Perc <- round((Cnt_Total_HR/Cnt_Total)*100,0)
+Attrition_Perc_HR <- round((Cnt_Att_Yes_HR/Cnt_Total_HR)*100,0)
+Attrition_Perc_HR  #17.14
+Overall_Attrition_Perc_HR <- round((Cnt_Att_Yes_HR/Cnt_Att_Yes)*100,0)
+
+Cnt_Att_Yes_RnD <- nrow(data_dept_RnD %>% filter(Attrition=="Yes"))
+Cnt_Total_RnD <-nrow(data_dept_RnD)
+Cnt_Total_RnD_Perc <- round((Cnt_Total_RnD/Cnt_Total)*100,0)
+Attrition_Perc_RnD <- round((Cnt_Att_Yes_RnD/Cnt_Total_RnD)*100,0)
+Attrition_Perc_RnD  #13.37
+Overall_Attrition_Perc_RnD <- round((Cnt_Att_Yes_RnD/Cnt_Att_Yes)*100,0)
+
+
+# Overall Attrition
+OrgWide_Attrition <- data.frame( "Total_employees"= Cnt_Total,"Total_Attr"=Cnt_Att_Yes, "Attr_rate"= Attrition_Perc)
+                                 
+#Attrition % by dept
+Attr_rate_by_dept <- data.frame( "Dept" = c("Sales","HR", "RnD", "OrgWide"),
+                                 "Total_emp"= c(Cnt_Total_Sales,Cnt_Total_HR,Cnt_Total_RnD,Cnt_Total),
+                                 "Total_emp_Perc"= c(Cnt_Total_Sales_Perc,Cnt_Total_HR_Perc,Cnt_Total_RnD_Perc,Cnt_Total),
+                                 "Attr_num"=c(Cnt_Att_Yes_Sales, Cnt_Att_Yes_HR,Cnt_Att_Yes_RnD,Cnt_Att_Yes), 
+                                 "Attr_rate_dept"= c( Attrition_Perc_Sales,Attrition_Perc_HR,Attrition_Perc_RnD,Attrition_Perc),
+                                 "Overall_Att_Perc" = c(Overall_Attrition_Perc_Sales,Overall_Attrition_Perc_HR,Overall_Attrition_Perc_RnD,Attrition_Perc))
+
+Attr_rate_by_dept
+summary(Attr_rate_by_dept)
+
+
+Attr_rate_by_dept_only <- Attr_rate_by_dept %>% filter(Dept!="OrgWide")
+
+#Distribution of employees by department
+#ggplot(data=Attr_rate_by_dept_only) + geom_histogram(mapping=aes(y=Total_emp_Perc, x= Dept, fill=Dept), stat="identity") + xlab("Department") + ylab("Attrition Rate") + ggtitle("Distribution of employees by department")
+
+p1 <- ggplot(data=Attr_rate_by_dept_only, mapping=aes(y=Total_emp_Perc, x= Dept, fill=Dept)) + geom_bar(stat="identity",show.legend = FALSE)  + xlab("Department") +
+  ylab("% of employees") + ggtitle("Distribution of employees by department") +
+  geom_text(aes(label = Total_emp_Perc), nudge_y = -1, color = "black")
+p1
+print("RnD department has the most number of employess")
+
+#Orgwide attrition rate comparision BY department
+p2 <- ggplot(data=Attr_rate_by_dept_only,mapping=aes(y=Overall_Att_Perc, x= Dept, fill=Dept)) + geom_bar(stat="identity",show.legend = FALSE) + xlab("Department") +
+  ylab("Attrition Rate") + ggtitle("Orgwide attrition rate comparision BY department") +
+  geom_text(aes(label = Overall_Att_Perc), nudge_y = -1, color = "black")
+p2
+print("Orgwide attrition rate is highest in RnD department")
+Attr_rate_by_dept
+
+#Attrition rate comparision WITHIN each department
+p3<- ggplot(data=Attr_rate_by_dept_only,mapping=aes(y=Attr_rate_dept, x= Dept, fill=Dept)) + geom_histogram(stat="identity")  + xlab("Department") +
+  ylab("Attrition Rate") + ggtitle("Attrition rate comparision WITHIN each department") +
+  geom_text(aes(label = Attr_rate_dept), nudge_y = -1, color = "black")
+p3
+print("Attrition is highest in Sales department, let's dive deep into this")
+
+grid.arrange(p1,p2, p3, ncol = 3)
+
+print("RnD department has the most number of employess, and has the most the number of attritions as well.But comparing the attrition within departments, we see that the Sales department had the highest attrition rate")
+
+
+
+#Attrition analysis in Sales department
+Sales_att <- CaseStudy2_raw_hist %>% filter(Department=='Sales' & Attrition=='Yes')
+#nrow(Sales_att)
+#Plot different measures to see how much they contributed to attrition
+Sales_p_Age_grp <- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= Age_Grp), position="dodge") + ggtitle("Attrition by age")
+Sales_p_BusinessTravel <- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= BusinessTravel), position="dodge") + ggtitle("Attrition by BusinessTravel")
+Sales_p_EducationField<- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= EducationField), position="dodge") + ggtitle("Attrition by EducationField")
+Sales_p_Gender<- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= Gender), position="dodge") + ggtitle("Attrition by Gender")
+Sales_p_JobRole<- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= JobRole), position="dodge") + ggtitle("Attrition by JobRole")
+Sales_p_MaritalStatus<- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= MaritalStatus), position="dodge") + ggtitle("Attrition by MaritalStatus")
+Sales_p_OverTime<- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= OverTime), position="dodge") + ggtitle("Attrition by OverTime") 
+Sales_p_JobInvolvement<- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= JobInvolvement), position="dodge") + ggtitle("Attrition by JobInvolvement")
+Sales_p_DistfrmHome <- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= DistfrmHome), position="dodge") + ggtitle("Attrition by age DistancefrmHome")
+Sales_p_Education <- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= Education), position="dodge") + ggtitle("Attrition by Education level")
+Sales_p_EnvironmentSatisfaction <- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= EnvironmentSatisfaction), position="dodge") + ggtitle("Attrition by EnvironmentSatisfaction")
+Sales_p_JobInvolvement<- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= JobInvolvement), position="dodge") + ggtitle("Attrition by obInvolvement")
+Sales_p_JobLevel<- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= JobLevel), position="dodge") + ggtitle("Attrition counts by obLevel")
+Sales_p_JobSatisfaction<- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= JobSatisfaction), position="dodge") + ggtitle("Attrition by JobSatisfaction")
+Sales_p_RelationshipSatisfaction<- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= RelationshipSatisfaction), position="dodge") + ggtitle("Attrition by elationshipSatisfaction")
+Sales_p_StockOptionLevel<- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= StockOptionLevel), position="dodge") + ggtitle("Attrition by StockOptionLevel")
+Sales_p_WorkLifeBalance<- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= WorkLifeBalance), position="dodge") + ggtitle("Attrition by WorkLifeBalance")
+Sales_p_MonthlyIncome_f<- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= MonthlyIncome_f), position="dodge") + ggtitle("Attrition by MonthlyIncome")
+Sales_p_MonthlyRate_f<- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= MonthlyRate_f), position="dodge") + ggtitle("Attrition by MonthlyRate")
+Sales_p_NumCompaniesWorked_f<- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= NumCompaniesWorked_f), position="dodge") + ggtitle("Attrition by NumCompaniesWorked")
+Sales_p_TotalWorkingYears_f<- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= TotalWorkingYears_f), position="dodge") + ggtitle("Attrition by TotalWorkingYears")
+Sales_p_TrainingTimesLastYear_f<- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= TrainingTimesLastYear_f), position="dodge") + ggtitle("Attrition by TrainingTimesLastYear")
+Sales_p_YearsAtCompany_f<- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= YearsAtCompany_f), position="dodge") + ggtitle("Attrition by YearsAtCompany")
+Sales_p_YearsInCurrentRole_f<- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= YearsInCurrentRole_f), position="dodge") + ggtitle("Attrition by YearsInCurrentRole")
+Sales_p_YearsSinceLastPromotion_f<- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= YearsSinceLastPromotion_f), position="dodge") + ggtitle("Attrition by YearsSinceLastPromotion")
+Sales_p_YearsWithCurrManager_f<- ggplot(data=Sales_att) + geom_bar(mapping=aes(x=Attrition, fill= YearsWithCurrManager_f), position="dodge") + ggtitle("Attrition by YearsWithCurrManager")
+
+grid.arrange(Sales_p_Age_grp,Sales_p_BusinessTravel,Sales_p_Education,Sales_p_EducationField,Sales_p_Gender,Sales_p_JobRole,Sales_p_MaritalStatus,Sales_p_OverTime,Sales_p_JobInvolvement,ncol = 3, nrow=3)
+grid.arrange(Sales_p_DistfrmHome,Sales_p_EnvironmentSatisfaction,Sales_p_JobInvolvement, Sales_p_JobLevel,Sales_p_JobSatisfaction,Sales_p_RelationshipSatisfaction,Sales_p_StockOptionLevel,Sales_p_WorkLifeBalance,ncol = 3, nrow=3)
+grid.arrange(Sales_p_MonthlyIncome_f,Sales_p_MonthlyRate_f,Sales_p_NumCompaniesWorked_f,Sales_p_TrainingTimesLastYear_f,Sales_p_YearsAtCompany_f,Sales_p_YearsInCurrentRole_f,Sales_p_YearsSinceLastPromotion_f,Sales_p_YearsWithCurrManager_f,ncol = 3, nrow=3)
+
+
+
+
+
+#3 Job Role specific trends
+Job_Lvl_p_Age_grp <- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= Age_Grp),show.legend = FALSE) + ggtitle("Age")   + ylab("Number of employess")
+Job_Lvl_p_Gender<- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= Gender),show.legend = FALSE) + ggtitle("Gender")   + ylab("")
+Job_Lvl_p_MaritalStatus<- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= MaritalStatus)) + ggtitle("MaritalStatus")    + ylab("")
+Job_Lvl_p_OverTime<- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= OverTime),show.legend = FALSE) + ggtitle("OverTime")    + ylab("Number of employess")
+Job_Lvl_p_JobInvolvement<- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= JobInvolvement),show.legend = FALSE) + ggtitle("JobInvolvement")  + ylab("")
+Job_Lvl_p_Education <- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= Education),show.legend = FALSE) + ggtitle("Education level")  + ylab("")
+
+Job_Lvl_p_EnvironmentSatisfaction <- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= EnvironmentSatisfaction),show.legend = FALSE) + ggtitle("EnvironmentSatisfaction")   + ylab("Number of employess")
+#Job_Lvl_p_JobInvolvement<- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= JobInvolvement),show.legend = FALSE) + ggtitle("JobInvolvement")   + ylab("")
+Job_Lvl_p_JobSatisfaction<- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= JobSatisfaction)) + ggtitle("JobSatisfaction")   + ylab("")
+Job_Lvl_p_RelationshipSatisfaction<- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= RelationshipSatisfaction),show.legend = FALSE) + ggtitle("RelationshipSatisfaction")    + ylab("Number of employess")
+Job_Lvl_p_StockOptionLevel<- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= StockOptionLevel),show.legend = FALSE) + ggtitle("StockOptionLevel")   + ylab("")
+Job_Lvl_p_WorkLifeBalance<- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x = WorkLifeBalance),show.legend = FALSE) + ggtitle("WorkLifeBalance")   + ylab("")
+
+Job_Lvl_p_MonthlyIncome_f<- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= MonthlyIncome_f),show.legend = FALSE) + ggtitle("MonthlyIncome")    + ylab("Number of employess")
+Job_Lvl_p_MonthlyRate_f<- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= MonthlyRate_f),show.legend = FALSE) + ggtitle("MonthlyRate")    + ylab("")
+Job_Lvl_p_NumCompaniesWorked_f<- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= NumCompaniesWorked_f)) + ggtitle("NumCompaniesWorked")    + ylab("")
+Job_Lvl_p_TotalWorkingYears_f<- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= TotalWorkingYears_f),show.legend = FALSE) + ggtitle("TotalWorkingYears")    + ylab("Number of employess")
+Job_Lvl_p_TrainingTimesLastYear_f<- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= TrainingTimesLastYear_f),show.legend = FALSE) + ggtitle("TrainingTimesLastYear")  + ylab("")
+Job_Lvl_p_YearsAtCompany_f<- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= YearsAtCompany_f),show.legend = FALSE) + ggtitle("YearsAtCompany")  + ylab("")
+
+Job_Lvl_p_YearsInCurrentRole_f<- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= YearsInCurrentRole_f),show.legend = FALSE) + ggtitle("YearsInCurrentRole")  + ylab("Number of employess")
+Job_Lvl_p_YearsSinceLastPromotion_f<- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= YearsSinceLastPromotion_f)) + ggtitle("YearsSinceLastPromotion")  + ylab("")
+Job_Lvl_p_YearsWithCurrManager_f<- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= YearsWithCurrManager_f),show.legend = FALSE) + ggtitle("YearsWithCurrManager")   + ylab("")
+Job_Lvl_p_DistfrmHome <- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= DistfrmHome),show.legend = FALSE) + ggtitle("DistanceFromHome") + ylab("Number of employess") +xlab("DistanceFromHome")
+
+Job_Lvl_p_BusinessTravel <- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= BusinessTravel),show.legend = FALSE) + ggtitle("BusinessTravel") + coord_flip() + xlab("") + ylab("Number of employess")
+Job_Lvl_p_Department<- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= Department),show.legend = FALSE) + ggtitle("Department")+ coord_flip()  + xlab("") + ylab("Number of employess")
+Job_Lvl_p_EducationField<- ggplot(data= CaseStudy2_raw_hist) + geom_bar(mapping=aes(fill=JobRole, x= EducationField)) + ggtitle("EducationField")  + coord_flip() + xlab("") + ylab("Number of employess")
+
+
+grid.arrange(Job_Lvl_p_BusinessTravel,Job_Lvl_p_Department,Job_Lvl_p_EducationField,ncol = 3, nrow=1)
+grid.arrange(Job_Lvl_p_Age_grp,Job_Lvl_p_Gender,Job_Lvl_p_MaritalStatus,Job_Lvl_p_OverTime,Job_Lvl_p_JobInvolvement,Job_Lvl_p_Education,ncol = 3, nrow=2)
+grid.arrange(Job_Lvl_p_EnvironmentSatisfaction,Job_Lvl_p_JobInvolvement,Job_Lvl_p_JobSatisfaction,Job_Lvl_p_RelationshipSatisfaction,Job_Lvl_p_StockOptionLevel,Job_Lvl_p_WorkLifeBalance,ncol = 3, nrow=2)
+grid.arrange(Job_Lvl_p_MonthlyIncome_f,Job_Lvl_p_MonthlyRate_f,Job_Lvl_p_NumCompaniesWorked_f,Job_Lvl_p_TotalWorkingYears_f,Job_Lvl_p_TrainingTimesLastYear_f,Job_Lvl_p_YearsAtCompany_f,ncol = 3, nrow=2)
+grid.arrange(Job_Lvl_p_YearsInCurrentRole_f,Job_Lvl_p_YearsSinceLastPromotion_f,Job_Lvl_p_YearsWithCurrManager_f,Job_Lvl_p_DistfrmHome,ncol = 2, nrow=2)
+
+```
+ 
+
+
+#Classification and Regression Model
+```{r, message=F, warning=F}
+#Include encessary libraries
+library(tidyverse)
+library(ggplot2)
+library(caret)
+library(tidyr)
+library(dplyr)
+library(e1071)
+library(class)
+
+#Read Source file
+CaseStudy2_raw <- read.csv(file.choose(), header = TRUE, sep=',')
+
+
+#Read No Attritions File
+CaseStudy2_Comp_set<- read.csv(file.choose(), header = TRUE, sep=',')
+
+
+#Read No Salary file
+CaseStudy2_Comp_Sal_set<- read.csv(file.choose(), header = TRUE, sep=',')
+
+#colnames(CaseStudy2_raw)
+#nrow(CaseStudy2_raw)
+#head(CaseStudy2_raw)
+colnames(CaseStudy2_raw) <- c("ID",	"Age",	"Attrition",	"BusinessTravel",	"DailyRate",	"Department",	"DistanceFromHome",	"Education",	"EducationField",	"EmployeeCount",	"EmployeeNumber",	"EnvironmentSatisfaction",	"Gender",	"HourlyRate",	"JobInvolvement",	"JobLevel",	"JobRole",	"JobSatisfaction",	"MaritalStatus",	"MonthlyIncome",	"MonthlyRate",	"NumCompaniesWorked",	"Over18",	"OverTime",	"PercentSalaryHike",	"PerformanceRating",	"RelationshipSatisfaction",	"StandardHours",	"StockOptionLevel",	"TotalWorkingYears",	"TrainingTimesLastYear",	"WorkLifeBalance",	"YearsAtCompany",	"YearsInCurrentRole",	"YearsSinceLastPromotion",	"YearsWithCurrManager")
+#Rename for test file
+#colnames(CaseStudy2_raw) <- c("ID",	"Age","BusinessTravel",	"DailyRate",	"Department",	"DistanceFromHome",	"Education",	"EducationField",	"EmployeeCount",	"EmployeeNumber",	"EnvironmentSatisfaction",	"Gender",	"HourlyRate",	"JobInvolvement",	"JobLevel",	"JobRole",	"JobSatisfaction",	"MaritalStatus",	"MonthlyIncome",	"MonthlyRate",	"NumCompaniesWorked",	"Over18",	"OverTime",	"PercentSalaryHike",	"PerformanceRating",	"RelationshipSatisfaction",	"StandardHours",	"StockOptionLevel",	"TotalWorkingYears",	"TrainingTimesLastYear",	"WorkLifeBalance",	"YearsAtCompany",	"YearsInCurrentRole",	"YearsSinceLastPromotion",	"YearsWithCurrManager")
+
+
+CaseStudy2_raw <- CaseStudy2_raw %>% filter(ID!=870)
+#summary(CaseStudy2_raw)
+
+#Final_Model_Results <- data.frame( "Test_Type" = character(), "Accuracy_knn" = double(),"Accuracy_NB" = double(), 
+#                                   "Specificity_knn" = double(), "Specificity_NB" = double(), 
+#                                   "Sensitivity_knn" = double(), "Sensitivity_NB" = double(), "DAta_Set_Name"=character())
+
+#Replace char values with numerical values - Business Travel(1-3), Gender(1,2), Marital Status -(1-3), OverTime (1,2), JobRole,EducationField,Department
+CaseStudy2_raw$BusinessTravel_N <- ifelse(str_detect(CaseStudy2_raw$BusinessTravel,'Non-Travel'),1, ifelse(str_detect(CaseStudy2_raw$BusinessTravel,'Travel_Rarely'),2,ifelse(str_detect(CaseStudy2_raw$BusinessTravel,'Travel_Frequently'),3,4)))
+CaseStudy2_raw$Gender_N <-ifelse(str_detect(CaseStudy2_raw$Gender,"^Male"),1, ifelse(str_detect(CaseStudy2_raw$Gender,"^Female"),2,3))
+CaseStudy2_raw$Over18_N <-ifelse(str_detect(CaseStudy2_raw$Over18,"Y"),1, 2)
+CaseStudy2_raw$MaritalStatus_N <- ifelse(str_detect(CaseStudy2_raw$MaritalStatus,'Single'),1, ifelse(str_detect(CaseStudy2_raw$MaritalStatus,'Married'),2,ifelse(str_detect(CaseStudy2_raw$MaritalStatus,'Divorced'),3,4)))
+CaseStudy2_raw$OverTime_N <-ifelse(str_detect(CaseStudy2_raw$OverTime,"No"),1, ifelse(str_detect(CaseStudy2_raw$OverTime,"Yes"),2,3))
+CaseStudy2_raw$Department_N <- ifelse(str_detect(CaseStudy2_raw$Department,"Human Resources"),1, ifelse(str_detect(CaseStudy2_raw$Department,"Research & Development"),2,3))
+CaseStudy2_raw$EducationField_N <- ifelse(str_detect(CaseStudy2_raw$Department,"Human Resources"),1,ifelse(str_detect(CaseStudy2_raw$Department,"Life Sciences"),2,
+                                                                                                           ifelse(str_detect(CaseStudy2_raw$Department,"Marketing"),3, 
+                                                                                                                  ifelse(str_detect(CaseStudy2_raw$Department, "Medical"),4,  
+                                                                                                                         ifelse(str_detect(CaseStudy2_raw$Department,"Other"),5, 6)))))     
+
+CaseStudy2_raw$JobRole_N <- ifelse(str_detect(CaseStudy2_raw$JobRole,"Sales Executive"),1,ifelse(str_detect(CaseStudy2_raw$Department,"Research Scientist"),2,
+                                                                                                           ifelse(str_detect(CaseStudy2_raw$Department,"Laboratory Technician"),3, 
+                                                                                                                  ifelse(str_detect(CaseStudy2_raw$Department, "Manufacturing Director"),4,  
+                                                                                                                         ifelse(str_detect(CaseStudy2_raw$Department,"Healthcare Representative"),5, 
+                                                                                                                                ifelse(str_detect(CaseStudy2_raw$Department,"Sales Representative"),6, 
+                                                                                                                                7)))))   )  
+
+#CaseStudy2_raw %>% select(JobRole_N,JobRole)
+#summary(CaseStudy2_raw)
+
+#Exclude employee number and employee cnt from the data
+#CaseStudy2_N <- CaseStudy2_raw %>% select("ID",	"Attrition","Age","BusinessTravel_N",	"DailyRate",	"Department_N",	"DistanceFromHome",	"Education",	"EducationField_N",	"EmployeeCount","EnvironmentSatisfaction",	"Gender_N",	"HourlyRate",	"JobInvolvement",	"JobLevel",	"JobRole_N",	"JobSatisfaction",	"MaritalStatus_N",	"MonthlyIncome",	"MonthlyRate",	"NumCompaniesWorked",	"Over18_N",	"OverTime_N",	"PercentSalaryHike",	"PerformanceRating",	"RelationshipSatisfaction",	"StandardHours",	"StockOptionLevel",	"TotalWorkingYears",	"TrainingTimesLastYear",	"WorkLifeBalance",	"YearsAtCompany",	"YearsInCurrentRole",	"YearsSinceLastPromotion",	"YearsWithCurrManager")
+
+CaseStudy2_N <- CaseStudy2_raw %>% select("ID",	"Attrition","Age","BusinessTravel_N",	"DailyRate",	"Department_N",	"DistanceFromHome",	"Education",	"EducationField_N","EnvironmentSatisfaction",	"Gender_N",	"HourlyRate",	"JobInvolvement",	"JobLevel",	"JobRole_N",	"JobSatisfaction",	"MaritalStatus_N",	"MonthlyIncome",	"MonthlyRate",	"NumCompaniesWorked",	"Over18_N",	"OverTime_N",	"PercentSalaryHike",	"PerformanceRating",	"RelationshipSatisfaction",	"StandardHours",	"StockOptionLevel",	"TotalWorkingYears",	"TrainingTimesLastYear",	"WorkLifeBalance",	"YearsAtCompany",	"YearsInCurrentRole",	"YearsSinceLastPromotion",	"YearsWithCurrManager")
+
+
+#Plotting the data
+#plot(CaseStudy2_N)
+
+
+##Base_Data <- CaseStudy2_N #data_Grp_1 # OR data_Grp_1 or data_Grp_2_Nmbr
+#Base_Data_Name <- "CaseStudy2_N" # or Data_Group_2
+#Number_of_Cols <- ncol(Base_Data)
+#Start Modelling the data  
+#1 Normalize the data
+#normalize <- function(x) {return ((x - min(x)) / (max(x) - min(x))) }
+#Base_Data_n <- as.data.frame(lapply(Asnumber_Base_Data[,3:Number_of_Cols], normalize))
+#head(Base_Data_n)
+#Base_Data_knn <- cbind(Base_Data[1],Base_Data[2],Base_Data_n)
+#head(Base_Data_knn)
+
+#Normalize the data using zscore
+library(jmotif)
+#Asnumber <- function(x) {return (as.numeric(x)) }
+#Asnumber_Base_Data <- as.data.frame(lapply(Base_Data[,3:Number_of_Cols], Asnumber))
+#Number_of_Cols <- ncol(Asnumber_Base_Data)
+#Base_Data_Z <- znorm(Asnumber_Base_Data[,3]):Number_of_Cols]))
+#normalize(Base_Data, method="Z-score")
+#summary(Asnumber_Base_Data)
+
+#CaseStudy2_N 
+Number_of_Cols_1 <- ncol(CaseStudy2_N)
+Asnumber <- function(x) {return (as.numeric(x)) } # function convert measures to numberic
+CaseStudy2_N_nmbr <- as.data.frame(lapply(CaseStudy2_N[,3:Number_of_Cols_1], Asnumber))
+znorm_f <-function(x) {return (znorm(x)) } # function to Z-norm the data
+Number_of_Cols_2 <- ncol(CaseStudy2_N_nmbr)
+znorm_CaseStudy2_N_nmbr <- as.data.frame(lapply(CaseStudy2_N_nmbr[,1:Number_of_Cols_2], znorm_f))
+CaseStudy2_N_Z <- cbind(CaseStudy2_N[1],CaseStudy2_N[2],znorm_CaseStudy2_N_nmbr) #combine z-norm data with ID and Attrition values
+#head(CaseStudy2_N_Z)
+Base_Data <- CaseStudy2_N_Z
+Number_of_Cols <- ncol(CaseStudy2_N_Z)
+
+#2 Finding K value with highest accuracy
+Acc= matrix(nrow=100, ncol=100)
+for (seed in 1:100)
+{
+  
+  #seed=4
+  set.seed(seed)
+  trainIndices = sample(seq(1:nrow(Base_Data)),round(.7*nrow(Base_Data)))
+  train_data = Base_Data[trainIndices,]
+  test_data = Base_Data[-trainIndices,] 
+  #nrow(train_CaseStudy2_raw) #609
+  #nrow(test_CaseStudy2_raw)  #261
+  ncol(train_data)
+  
+  #For loop to run KNN model for k=1-100  
+  for( i in 1:100) {
+    # knn1 <- knn(train_CaseStudy2_raw[,c(1,18)],test_CaseStudy2_raw[,c(1,18)],train_CaseStudy2_raw$Attrition, k=i )
+    knn1 <- knn(train_data[,3:Number_of_Cols],test_data[,3:Number_of_Cols],train_data$Attrition, k=i )#ERROR if data not normalized
+    t_knn <- table(knn1, test_data$Attrition)
+    CM_knn <- confusionMatrix(t_knn)
+    #Capture Accuracy
+    #ACC <- CM_knn$overall[1]
+    Acc[seed,i] = CM_knn$overall[1]
+    
+  } 
+}
+#Caluclate mean accuracy for each of the seed/knn iteritions
+mean_Acc = colMeans(Acc)
+i_highest_acc <- which.max(mean_Acc)
+
+#3. Run Knn and NB on the data set with different seed values
+Conclusion_job_sat <- data.frame("Seed" = double() , "Accuracy_knn"  = double(), "Accuracy_NB" = double(),"Specificity_knn" = double() ,
+                                 "Specificity_NB" = double(), "Sensitivity_knn"  = double()  , "Sensitivity_NB" = double() )
+
+for (seed in 1:100)
+{
+  set.seed(seed)
+  #Split the data set into train and test
+  trainIndices = sample(seq(1:nrow(Base_Data)),round(.7*nrow(Base_Data)))
+  train_data = Base_Data[trainIndices,]
+  test_data = Base_Data[-trainIndices,] 
+  
+  #KNN
+  knn1 <- knn(train_data[,3:Number_of_Cols],test_data[,3:Number_of_Cols],train_data$Attrition, k=i_highest_acc )#ERROR - TRY TO NORMALISE THE DATA
+  t_knn <- table(knn1, test_data$Attrition)
+  CM_knn <- confusionMatrix(t_knn)
+  
+  #NB
+  model = naiveBayes(train_data[,3:Number_of_Cols], train_data$Attrition)
+  NB_Predict <- predict(model,test_data[,3:Number_of_Cols])
+  t_Predict <- table(NB_Predict,test_data$Attrition)
+  CM_NB <- confusionMatrix(t_Predict)
+  
+  #Capture the comparision in a dataframe
+  Conclusion <- data.frame( "Seed" = seed, "Accuracy_knn" = CM_knn$overall[1],"Accuracy_NB" = CM_NB$overall[1], 
+                            "Specificity_knn" = CM_knn$byClass[2], "Specificity_NB" = CM_NB$byClass[2], 
+                            "Sensitivity_knn" = CM_knn$byClass[1], "Sensitivity_NB" = CM_NB$byClass[1])
+  #Merge the 2 dataframes
+  Conclusion_job_sat <- rbind(Conclusion_job_sat,Conclusion) 
+}
+
+#Calculate Mean Accuracy, Specificity and Senitivity across all seeds for each model
+mean_Accuracy_knn <- mean(Conclusion_job_sat$Accuracy_knn)
+mean_Accuracy_NB <- mean(Conclusion_job_sat$Accuracy_NB)
+mean_Specificity_knn <- mean(Conclusion_job_sat$Specificity_knn)
+mean_Specificity_NB <- mean(Conclusion_job_sat$Specificity_NB)
+mean_Sensitivity_knn <- mean(Conclusion_job_sat$Sensitivity_knn)
+mean_Sensitivity_NB <- mean(Conclusion_job_sat$Sensitivity_NB)
+
+#Putting all Means in one dataframe
+Mean_Knn_NB <- data.frame( Test_Type = c("KNN", "NB"), Mean_Accuracy = c(mean_Accuracy_knn, mean_Accuracy_NB), 
+                           Mean_Specificity=c(mean_Specificity_knn,mean_Specificity_NB ),
+                           Mean_Sensitivity=c(mean_Sensitivity_knn, mean_Sensitivity_NB))
+
+#print(paste("Modelling results for data set",Base_Data_Name) ) 
+#Mean_Knn_NB$DAta_Set_Name <- Base_Data_Name
+Mean_Knn_NB
+#Capturing results for different data groups and different models
+#Final_Model_Results <- rbind(Final_Model_Results,Mean_Knn_NB)
+#Final_Model_Results
+
+#NB Prediction: 
+#Testing the provided file
+
+colnames(CaseStudy2_Comp_set)
+colnames(CaseStudy2_Comp_set) <- c("ID",	"Age","BusinessTravel",	"DailyRate",	"Department",	"DistanceFromHome",	"Education",	"EducationField",	"EmployeeCount",	"EmployeeNumber",	"EnvironmentSatisfaction",	"Gender",	"HourlyRate",	"JobInvolvement",	"JobLevel",	"JobRole",	"JobSatisfaction",	"MaritalStatus",	"MonthlyIncome",	"MonthlyRate",	"NumCompaniesWorked",	"Over18",	"OverTime",	"PercentSalaryHike",	"PerformanceRating",	"RelationshipSatisfaction",	"StandardHours",	"StockOptionLevel",	"TotalWorkingYears",	"TrainingTimesLastYear",	"WorkLifeBalance",	"YearsAtCompany",	"YearsInCurrentRole",	"YearsSinceLastPromotion",	"YearsWithCurrManager")
+CaseStudy2_Comp_set$BusinessTravel_N <- ifelse(str_detect(CaseStudy2_Comp_set$BusinessTravel,'Non-Travel'),1, ifelse(str_detect(CaseStudy2_Comp_set$BusinessTravel,'Travel_Rarely'),2,ifelse(str_detect(CaseStudy2_Comp_set$BusinessTravel,'Travel_Frequently'),3,4)))
+CaseStudy2_Comp_set$Gender_N <-ifelse(str_detect(CaseStudy2_Comp_set$Gender,"^Male"),1, ifelse(str_detect(CaseStudy2_Comp_set$Gender,"^Female"),2,3))
+CaseStudy2_Comp_set$Over18_N <-ifelse(str_detect(CaseStudy2_Comp_set$Over18,"Y"),1, 2)
+CaseStudy2_Comp_set$MaritalStatus_N <- ifelse(str_detect(CaseStudy2_Comp_set$MaritalStatus,'Single'),1, ifelse(str_detect(CaseStudy2_Comp_set$MaritalStatus,'Married'),2,ifelse(str_detect(CaseStudy2_Comp_set$MaritalStatus,'Divorced'),3,4)))
+CaseStudy2_Comp_set$OverTime_N <-ifelse(str_detect(CaseStudy2_Comp_set$OverTime,"No"),1, ifelse(str_detect(CaseStudy2_Comp_set$OverTime,"Yes"),2,3))
+CaseStudy2_Comp_set$Department_N <- ifelse(str_detect(CaseStudy2_Comp_set$Department,"Human Resources"),1, ifelse(str_detect(CaseStudy2_Comp_set$Department,"Research & Development"),2,3))
+CaseStudy2_Comp_set$EducationField_N <- ifelse(str_detect(CaseStudy2_Comp_set$Department,"Human Resources"),1,ifelse(str_detect(CaseStudy2_Comp_set$Department,"Life Sciences"),2,
+                                                                                                           ifelse(str_detect(CaseStudy2_Comp_set$Department,"Marketing"),3, 
+                                                                                                                  ifelse(str_detect(CaseStudy2_Comp_set$Department, "Medical"),4,  
+                                                                                                                         ifelse(str_detect(CaseStudy2_Comp_set$Department,"Other"),5, 6)))))     
+
+CaseStudy2_Comp_set$JobRole_N <- ifelse(str_detect(CaseStudy2_Comp_set$JobRole,"Sales Executive"),1,ifelse(str_detect(CaseStudy2_Comp_set$Department,"Research Scientist"),2,
+                                                                                                 ifelse(str_detect(CaseStudy2_Comp_set$Department,"Laboratory Technician"),3, 
+                                                                                                        ifelse(str_detect(CaseStudy2_Comp_set$Department, "Manufacturing Director"),4,  
+                                                                                                               ifelse(str_detect(CaseStudy2_Comp_set$Department,"Healthcare Representative"),5, 
+                                                                                                                      ifelse(str_detect(CaseStudy2_Comp_set$Department,"Sales Representative"),6, 
+                                                                                                                             7)))))   )  
+
+
+#Exclude employee number and employee cnt from the data
+CaseStudy2_comp_N <- CaseStudy2_Comp_set %>% select("ID",	"Age","BusinessTravel_N",	"DailyRate",	"Department_N",	"DistanceFromHome",	"Education",	"EducationField_N","EnvironmentSatisfaction",	"Gender_N",	"HourlyRate",	"JobInvolvement",	"JobLevel",	"JobRole_N",	"JobSatisfaction",	"MaritalStatus_N",	"MonthlyIncome",	"MonthlyRate",	"NumCompaniesWorked",	"Over18_N",	"OverTime_N",	"PercentSalaryHike",	"PerformanceRating",	"RelationshipSatisfaction",	"StandardHours",	"StockOptionLevel",	"TotalWorkingYears",	"TrainingTimesLastYear",	"WorkLifeBalance",	"YearsAtCompany",	"YearsInCurrentRole",	"YearsSinceLastPromotion",	"YearsWithCurrManager")
+
+Number_of_Cols_1 <- ncol(CaseStudy2_comp_N)
+Asnumber <- function(x) {return (as.numeric(x)) } # function convert measures to numberic
+CaseStudy2_comp_N_nmbr <- as.data.frame(lapply(CaseStudy2_comp_N[,2:Number_of_Cols_1], Asnumber))
+znorm_f <-function(x) {return (znorm(x)) } # function to Z-norm the data
+Number_of_Cols_2 <- ncol(CaseStudy2_comp_N_nmbr)
+znorm_CaseStudy2_comp_N_nmbr <- as.data.frame(lapply(CaseStudy2_comp_N_nmbr[,1:Number_of_Cols_2], znorm_f))
+CaseStudy2_comp_N_Z <- cbind(CaseStudy2_comp_N[1],znorm_CaseStudy2_comp_N_nmbr) #combine z-norm data with ID and Attrition values
+#head(CaseStudy2_N_Z)
+Base_Data <- CaseStudy2_comp_N_Z
+Number_of_Cols <- ncol(CaseStudy2_comp_N_Z)
+
+NB_Predict_Att <- predict(model,CaseStudy2_comp_N_Z[,2:Number_of_Cols])
+nrow(CaseStudy2_comp_N_Z)
+answers <- cbind(NB_Predict_Att,CaseStudy2_comp_N_Z[1])
+head(answers)
+colnames(answers) <- c('Predcited Attrition','ID')
+joined_data <- left_join(answers, CaseStudy2_Comp_set, by = "ID")
+head(joined_data)
+output <- select (joined_data,'Predcited Attrition',"ID",	"Age","BusinessTravel",	"DailyRate",	"Department",	"DistanceFromHome",	"Education",	"EducationField",	"EmployeeCount",	"EmployeeNumber",	"EnvironmentSatisfaction",	"Gender",	"HourlyRate",	"JobInvolvement",	"JobLevel",	"JobRole",	"JobSatisfaction",	"MaritalStatus",	"MonthlyIncome",	"MonthlyRate",	"NumCompaniesWorked",	"Over18",	"OverTime",	"PercentSalaryHike",	"PerformanceRating",	"RelationshipSatisfaction",	"StandardHours",	"StockOptionLevel",	"TotalWorkingYears",	"TrainingTimesLastYear",	"WorkLifeBalance",	"YearsAtCompany",	"YearsInCurrentRole",	"YearsSinceLastPromotion",	"YearsWithCurrManager") 
+#PUT THE ANSWERS IN CSV
+
+#Write output
+write.csv(output, file = "C:/Users/simer/Documents/SMU/Doing_DataScience/Case_Study_2/Case2PredictionsClassifyREDDY.csv")
+
+#EDA for Linear Regression
+
+
+#EDA
+M_p1 <- plot(CaseStudy2_N_Z[,c(3,5,8,12,14,15,18)])
+M_p2 <- plot(CaseStudy2_N_Z[,c(18,19,20,22,23,24,26,28,31,32)])
+plot(CaseStudy2_N_Z[,c(3, 5, 14, 18,28,31,32)])
+
+#summary(CaseStudy2_raw)
+#head(CaseStudy2_N_Z)
+#Columns of interest : MonthlyIncome,JobLevel,Age,DailyRate,TotalWorkingYears,YearsAtCompany,YearsInCurrentRole
+par(mfrow=c(3, 3)) 
+
+#Scatter Plot of Shortlisted measures
+scatter.smooth(x=CaseStudy2_raw$MonthlyIncome, y=CaseStudy2_raw$JobLevel, main="JobLevel ~ MonthlyIncome")
+scatter.smooth(x=CaseStudy2_raw$MonthlyIncome, y=CaseStudy2_raw$Age, main="Age ~ MonthlyIncome")
+scatter.smooth(x=CaseStudy2_raw$MonthlyIncome, y=CaseStudy2_raw$DailyRate, main="DailyRate ~ MonthlyIncome") #pretty flat
+scatter.smooth(x=CaseStudy2_raw$MonthlyIncome, y=CaseStudy2_raw$TotalWorkingYears, main="TotalWorkingYears ~ MonthlyIncome")
+scatter.smooth(x=CaseStudy2_raw$MonthlyIncome, y=CaseStudy2_raw$YearsAtCompany, main="YearsAtCompany ~ MonthlyIncome")
+scatter.smooth(x=CaseStudy2_raw$MonthlyIncome, y=CaseStudy2_raw$YearsInCurrentRole, main="YearsInCurrentRole ~ MonthlyIncome")
+
+#Extra measures
+scatter.smooth(x=CaseStudy2_raw$MonthlyIncome, y=CaseStudy2_raw$DistanceFromHome, main="DistanceFromHome ~ MonthlyIncome")
+scatter.smooth(x=CaseStudy2_raw$MonthlyIncome, y=CaseStudy2_raw$HourlyRate, main="HourlyRate ~ MonthlyIncome")
+scatter.smooth(x=CaseStudy2_raw$MonthlyIncome, y=CaseStudy2_raw$MonthlyRate, main="MonthlyRate ~ MonthlyIncome")
+scatter.smooth(x=CaseStudy2_raw$MonthlyIncome, y=CaseStudy2_raw$Education, main="Education ~ MonthlyIncome")
+scatter.smooth(x=CaseStudy2_raw$MonthlyIncome, y=CaseStudy2_raw$BusinessTravel, main="BusinessTravel ~ MonthlyIncome")
+scatter.smooth(x=CaseStudy2_raw$MonthlyIncome, y=CaseStudy2_raw$NumCompaniesWorked, main="NumCompaniesWorked ~ MonthlyIncome")
+scatter.smooth(x=CaseStudy2_raw$MonthlyIncome, y=CaseStudy2_raw$PerformanceRating, main="PerformanceRating ~ MonthlyIncome")
+scatter.smooth(x=CaseStudy2_raw$MonthlyIncome, y=CaseStudy2_raw$YearsWithCurrManager, main="YearsWithCurrManager ~ MonthlyIncome")
+
+# BOX PLOT to see outliers : Let's look at Job Level, Age, Total working years
+par(mfrow=c(2, 2))  # divide graph area in 2 columns
+boxplot(CaseStudy2_raw$MonthlyIncome, main="MonthlyIncome", sub=paste("Outlier rows: ", boxplot.stats(CaseStudy2_raw$MonthlyIncome)$out))  # box plot for 'speed'
+boxplot(CaseStudy2_raw$Age, main="Age", sub=paste("Outlier rows: ", boxplot.stats(CaseStudy2_raw$Age)$out)) 
+boxplot(CaseStudy2_raw$DailyRate, main="DailyRate", sub=paste("Outlier rows: ", boxplot.stats(CaseStudy2_raw$DailyRate)$out)) 
+boxplot(CaseStudy2_raw$TotalWorkingYears, main="TotalWorkingYears", sub=paste("Outlier rows: ", boxplot.stats(CaseStudy2_raw$TotalWorkingYears)$out)) 
+boxplot(CaseStudy2_raw$YearsAtCompany, main="YearsAtCompany", sub=paste("Outlier rows: ", boxplot.stats(CaseStudy2_raw$YearsAtCompany)$out)) 
+boxplot(CaseStudy2_raw$YearsInCurrentRole, main="YearsInCurrentRole", sub=paste("Outlier rows: ", boxplot.stats(CaseStudy2_raw$YearsInCurrentRole)$out)) 
+boxplot(CaseStudy2_raw$JobLevel, main="JobLevel", sub=paste("Outlier rows: ", boxplot.stats(CaseStudy2_raw$JobLevel)$out)) 
+
+# Density Plot
+par(mfrow=c(2, 2))  # divide graph area in 2 columns
+
+plot(density(CaseStudy2_raw$MonthlyIncome), main="Density Plot: MonthlyIncome", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(CaseStudy2_raw$MonthlyIncome), 2)))  # density plot for 'MonthlyIncome'
+polygon(density(CaseStudy2_raw$MonthlyIncome), col="red")
+
+plot(density(CaseStudy2_raw$JobLevel), main="Density Plot: JobLevel", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(CaseStudy2_raw$JobLevel), 2)))  # density plot for 'MonthlyIncome'
+polygon(density(CaseStudy2_raw$JobLevel), col="red")
+
+plot(density(CaseStudy2_raw$Age), main="Density Plot: Age", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(CaseStudy2_raw$Age), 2)))  # density plot for 'Age'
+polygon(density(CaseStudy2_raw$Age), col="red")
+
+plot(density(CaseStudy2_raw$DailyRate), main="Density Plot: DailyRate", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(CaseStudy2_raw$DailyRate), 2)))  # density plot for 'DailyRate'
+polygon(density(CaseStudy2_raw$DailyRate), col="red")
+
+plot(density(CaseStudy2_raw$TotalWorkingYears), main="Density Plot: TotalWorkingYears", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(CaseStudy2_raw$TotalWorkingYears), 2)))   # density plot for 'TotalWorkingYears'
+polygon(density(CaseStudy2_raw$TotalWorkingYears), col="red")
+
+plot(density(CaseStudy2_raw$YearsAtCompany), main="Density Plot: YearsAtCompany", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(CaseStudy2_raw$YearsAtCompany), 2)))  # density plot for 'YearsAtCompany'
+polygon(density(CaseStudy2_raw$YearsAtCompany), col="red")
+
+plot(density(CaseStudy2_raw$YearsInCurrentRole), main="Density Plot: YearsInCurrentRole", ylab="Frequency", sub=paste("Skewness:", round(e1071::skewness(CaseStudy2_raw$YearsInCurrentRole), 2)))  # density plot for 'CaseStudy2_raw$YearsInCurrentRole'
+polygon(density(CaseStudy2_raw$YearsInCurrentRole), col="red")
+
+#Correlation
+cor(CaseStudy2_raw$MonthlyIncome, CaseStudy2_raw$JobLevel) #0.9517233
+cor(CaseStudy2_raw$MonthlyIncome, CaseStudy2_raw$TotalWorkingYears) #0.7785329
+cor(CaseStudy2_raw$MonthlyIncome, CaseStudy2_raw$Age) #0.4842501
+
+
+#Let's start building lm with variable with highest correlation factor
+#JOB LEVEL
+linearMod_JL <- lm(MonthlyIncome ~ JobLevel, data=CaseStudy2_raw)  # build linear regression model on full data
+print(linearMod_JL)
+#MonthlyIncome = Intercept + (β ∗ JobLevel)
+#MonthlyIncome = -1792 + 4014 * JobLevel
+modelSummary_JL <- summary(linearMod_JL)
+modelCoeffs_JL <- modelSummary_JL$coefficients
+AIC_JL <- AIC(linearMod_JL)
+BIC_JL <- BIC(linearMod_JL)
+pred_MonthlyIncome <- predict(linearMod_JL, newdata = CaseStudy2_raw)
+t_JL_Model_1 <- train(MonthlyIncome ~ JobLevel, method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+summary(t_JL_Model_1)
+t_JL_Model_1$results #RMSE 1414.445/ r-sq 0.9053364
+
+MonthlyIncome_preds = predict(linearMod_JL)
+CaseStudy2_raw %>% ggplot(aes(x = MonthlyIncome, y = JobLevel)) + geom_point() + geom_line(data = CaseStudy2_raw, aes( x = MonthlyIncome_preds, y = JobLevel, col = "red")) + ggtitle("LR Model: JobLevel vs MonthlyIncome") + scale_color_discrete(name = "Predicted")
+
+linearMod_JL_sq <- lm(MonthlyIncome ~ JobLevel + I(JobLevel^2), data=CaseStudy2_raw)  #
+linearMod_JL_sq_summary <- summary(linearMod_JL_sq)
+linearMod_JL_sq_summary$coefficients
+
+CaseStudy2_raw$JobLevelSQ <- CaseStudy2_raw$JobLevel^2
+t_JL_Model_2 <- train(MonthlyIncome ~ JobLevel + JobLevelSQ, method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+summary(t_JL_Model_2)
+CaseStudy2_raw <- CaseStudy2_raw %>% mutate(JobLevelSQ = JobLevel^2)
+MonthlyIncome_preds2 = predict(t_JL_Model_2)
+t_JL_Model_2$results # #RMSE  1436.79/ r-sq 0.9262231
+
+#MODEL 1 IS BETTER
+#t_JL_Model_3 <- train(MonthlyIncome ~ JobLevel + I(JobLevel^2) + I(JobLevel^3), method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+#t_JL_Model_3$results # #RMSE  1396.326
+#summary(t_JL_Model_3)
+
+#t_JL_Model_4 <- train(MonthlyIncome ~ JobLevel + I(JobLevel^2) + I(JobLevel^3) +   I(JobLevel^4), method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+#t_JL_Model_4$results # #RMSE  1378.202
+#summary(t_JL_Model_4)
+
+#t_JL_Model_5 <- train(MonthlyIncome ~ JobLevel + I(JobLevel^2) + I(JobLevel^3) +   I(JobLevel^4)  +   I(JobLevel^5), method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+#t_JL_Model_5$results #RMSE  1378.202
+#summary(t_JL_Model_5)
+
+#TotalWorkingYears
+linearMod_T_Wrkng_Yrs_t <- train(MonthlyIncome ~ TotalWorkingYears , method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+summary(linearMod_T_Wrkng_Yrs_t)
+linearMod_T_Wrkng_Yrs_t$results #RmSE 2893.807 increased
+
+CaseStudy2_raw <- CaseStudy2_raw %>% mutate(TotalWorkingYearsSQ = TotalWorkingYears^2)
+linearMod_T_Wrkng_Yrs_t2 <- train(MonthlyIncome ~ TotalWorkingYears + TotalWorkingYearsSQ, method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+summary(linearMod_T_Wrkng_Yrs_t2)
+linearMod_T_Wrkng_Yrs_t2$results # rmsse 2896, never mind
+
+t_JL_TWrkngHrs <- train(MonthlyIncome ~ JobLevel + TotalWorkingYears, method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+t_JL_TWrkngHrs$results # RMSE 1392 BETTER THAN MODEL 1 JOB LEVEL
+#T_Wrkng_Yrs_preds1 = predict(linearMod_T_Wrkng_Yrs_t)
+#T_Wrkng_Yrs_preds2 = predict(linearMod_T_Wrkng_Yrs_t2)
+#CaseStudy2_raw %>% ggplot(aes(x = MonthlyIncome, y = TotalWorkingYears)) + geom_point() + geom_line(data = CaseStudy2_raw, aes( x = MonthlyIncome_preds, y = T_Wrkng_Yrs_preds1, col = "red")) + ggtitle("LR Model: JobLevel + Horsepower^2 + Horsepower^3 vs MPG") + scale_color_discrete(name = "Predicted")
+#CaseStudy2_raw %>% ggplot(aes(x = MonthlyIncome, y = TotalWorkingYears)) + geom_point() + geom_line(data = CaseStudy2_raw, aes( x = MonthlyIncome_preds, y = T_Wrkng_Yrs_preds2, col = "red")) + ggtitle("LR Model: JobLevel + Horsepower^2 + Horsepower^3 vs MPG") + scale_color_discrete(name = "Predicted")
+
+
+linearMod_T_Wrkng_Yrs <- lm(MonthlyIncome ~ TotalWorkingYears, data=CaseStudy2_raw)  # build linear regression model on full data
+#print(linearMod_T_Wrkng_Yrs)
+#MonthlyIncome = Intercept + (β ∗ JobLevel)
+#MonthlyIncome = -1902 + 4093 * JobLevel
+modelSummary_T_Wrkng_Yrs <- summary(linearMod_T_Wrkng_Yrs)
+modelCoeffs_T_Wrkng_Yrs <- modelSummary_T_Wrkng_Yrs$coefficients
+AIC_T_Wrkng_Yrs <- AIC(linearMod_T_Wrkng_Yrs)
+BIC_T_Wrkng_Yrs <- BIC(linearMod_T_Wrkng_Yrs)
+
+T_Wrkng_Yrs_preds = predict(linearMod_T_Wrkng_Yrs)
+#CaseStudy2_raw %>% ggplot(aes(x = MonthlyIncome, y = TotalWorkingYears)) + geom_smooth() + geom_line(data = CaseStudy2_raw, aes( x = MonthlyIncome, y = T_Wrkng_Yrs_preds, col = "red")) + ggtitle("LR Model: Horsepower + Horsepower^2 + Horsepower^3 vs MPG") + scale_color_discrete(name = "Predicted")
+#CaseStudy2_raw %>% ggplot(aes(x = MonthlyIncome, y = JobLevel)) + geom_smooth() + geom_line(data = CaseStudy2_raw, aes( x = MonthlyIncome, y = T_Wrkng_Yrs_preds, col = "red")) + ggtitle("LR Model: Horsepower + Horsepower^2 + Horsepower^3 vs MPG") + scale_color_discrete(name = "Predicted")
+
+#TotalWorkingYears
+linearMod_Age <- lm(MonthlyIncome ~ Age, data=CaseStudy2_raw)  # build linear regression model on full data
+print(linearMod_Age)
+
+linearMod_Age_JL <- lm(MonthlyIncome ~ Age + JobLevel, data=CaseStudy2_raw)  # build linear regression model on full data
+print(linearMod_Age_JL)
+AIC(linearMod_Age_JL)
+BIC(linearMod_Age_JL)
+
+linearMod_Age_JL_TWH <- lm(MonthlyIncome ~ Age + JobLevel + TotalWorkingYears, data=CaseStudy2_raw)  # build linear regression model on full data
+print(linearMod_Age_JL_TWH)
+AIC(linearMod_Age_JL_TWH)
+BIC(linearMod_Age_JL_TWH)
+
+linearMod_Age_t <- train(MonthlyIncome ~ Age , method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+summary(linearMod_Age_t)
+linearMod_Age_t$results #RmSE 4033.305
+
+#MonthlyIncome = Intercept + (β ∗ JobLevel)
+#MonthlyIncome = -1902 + 4093 * JobLevel
+modelSummary_Age <- summary(linearMod_Age)
+modelCoeffs_Age <- modelSummary_Age$coefficients
+AIC_Age <- AIC(linearMod_Age)
+BIC_Age <- BIC(linearMod_Age)
+
+AIC_BIC_LM_JL <- data.frame("Measure" = c("AIC","BIC"), "lm_on" = c("JobLevel","JobLevel"), "Value" = c(AIC_JL,BIC_JL))
+AIC_BIC_LM_T_Wrkng_Yrs <- data.frame("Measure" = c("AIC","BIC"), "lm_on" = c("TotalWorkingYears","TotalWorkingYears"), "Value" = c(AIC_T_Wrkng_Yrs,BIC_T_Wrkng_Yrs))
+AIC_BIC_LM_Age <- data.frame("Measure" = c("AIC","BIC"), "lm_on" = c("Age","Age"), "Value" = c(AIC_Age,BIC_Age))
+AIC_BIC <- rbind(AIC_BIC_LM_JL,AIC_BIC_LM_T_Wrkng_Yrs,AIC_BIC_LM_Age)
+AIC(linearMod_Age_JL)
+BIC(linearMod_Age_JL)
+AIC(linearMod_Age_JL_TWH)
+BIC(linearMod_Age_JL_TWH)
+AIC_BIC
+
+linearMod_Age_T_Wrkng_Yrs_jl <- train(MonthlyIncome ~ Age + TotalWorkingYears + JobLevel  , method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+summary(linearMod_Age_T_Wrkng_Yrs_jl)
+linearMod_Age_T_Wrkng_Yrs_jl$results #RMSE 1393
+
+t_JL_TWrkngHrs <- train(MonthlyIncome ~ JobLevel + TotalWorkingYears, method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+t_JL_TWrkngHrs$results # RMSE 1392.143
+
+#COMBINING ALL 3 MEASURES
+linearMod_Age_JL_TWH <- lm(MonthlyIncome ~ Age + JobLevel + TotalWorkingYears, data=CaseStudy2_raw)  # build linear regression model on full data
+print(linearMod_Age_JL_TWH)
+AIC(linearMod_Age_JL_TWH)
+BIC(linearMod_Age_JL_TWH)
+
+CaseStudy2_raw$JobLevelCub <- CaseStudy2_raw$JobLevel^3
+CaseStudy2_raw$JobLevelCub <- CaseStudy2_raw$JobLevel^3
+
+linearMod_Age_T_Wrkng_Yrs_jl2 <- train(MonthlyIncome ~ Age + TotalWorkingYears + JobLevel + JobLevelCub , method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+summary(linearMod_Age_T_Wrkng_Yrs_jl)
+linearMod_Age_T_Wrkng_Yrs_jl$results #RMSE 1303
+#Predict_JL_Age_Model_1 <- predict(JL_Age_Model_1)
+Sum_ge_T_Wrkng_Yrs_jl <- summary(linearMod_Age_T_Wrkng_Yrs_jl)
+Sum_ge_T_Wrkng_Yrs_jl$r.squared #r-sq 0.92
+
+
+MonthlyIncome_preds = predict(linearMod_JL)
+CaseStudy2_raw %>% ggplot(aes(x = MonthlyIncome, y = JobLevel)) + geom_point() + geom_line(data = CaseStudy2_raw, aes( x = MonthlyIncome_preds, y = JobLevel, col = "red")) + ggtitle("LR Model: JobLevel vs MonthlyIncome") + scale_color_discrete(name = "Predicted")
+
+MonthlyIncome_preds2 = predict(t_JL_Model_2)
+CaseStudy2_raw %>% ggplot(aes(x = MonthlyIncome, y = JobLevel)) + geom_point() + geom_line(data = CaseStudy2_raw, aes( x = MonthlyIncome_preds2, y = JobLevel, col = "red")) + ggtitle("LR Model: JobLevel + JobLevel^2  vs MonthlyIncome") + scale_color_discrete(name = "Predicted")
+
+
+CaseStudy2_raw$TotalWorkingYearsSQ <- CaseStudy2_raw$TotalWorkingYears^2
+TWH_Model_2 <- train(MonthlyIncome ~ TotalWorkingYears + TotalWorkingYearsSQ, method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+Predict_TWH_Model_2 <- predict(TWH_Model_2)
+CaseStudy2_raw %>% ggplot(aes(x = TotalWorkingYears, y = Predict_TWH_Model_2)) + geom_smooth() + geom_point()
+
+CaseStudy2_raw$TotalWorkingYearsCub <- CaseStudy2_raw$TotalWorkingYears^3
+TWH_Model_3 <- train(MonthlyIncome ~ TotalWorkingYears + TotalWorkingYearsSQ + TotalWorkingYearsCub, method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+Predict_JL_Model_3 <- predict(TWH_Model_3)
+CaseStudy2_raw %>% ggplot(aes(x = TotalWorkingYears, y = Predict_JL_Model_3)) + geom_smooth() + geom_point()
+
+
+CaseStudy2_raw %>% ggplot(aes(x = MonthlyIncome, y = Age)) + geom_smooth()
+
+Age_Model_1 <- train(MonthlyIncome ~ Age, method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+Predict_Age_Model_1 <- predict(Age_Model_1)
+#CaseStudy2_raw %>% ggplot(aes(x = Predict_TWH_Model_1, y = TotalWorkingYears)) + geom_smooth() + geom_point()
+CaseStudy2_raw %>% ggplot(aes(x = Age, y = Predict_Age_Model_1)) + geom_smooth() + geom_point()
+
+
+CaseStudy2_raw$TotalWorkingYearsSQ <- CaseStudy2_raw$TotalWorkingYears^2
+TWH_Model_2 <- train(MonthlyIncome ~ TotalWorkingYears + TotalWorkingYearsSQ, method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+Predict_TWH_Model_2 <- predict(TWH_Model_2)
+CaseStudy2_raw %>% ggplot(aes(x = TotalWorkingYears, y = Predict_TWH_Model_2)) + geom_smooth() + geom_point()
+
+CaseStudy2_raw$TotalWorkingYearsCub <- CaseStudy2_raw$TotalWorkingYears^3
+TWH_Model_3 <- train(MonthlyIncome ~ TotalWorkingYears + TotalWorkingYearsSQ + TotalWorkingYearsCub, method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+Predict_JL_Model_3 <- predict(TWH_Model_3)
+CaseStudy2_raw %>% ggplot(aes(x = TotalWorkingYears, y = Predict_JL_Model_3)) + geom_smooth() + geom_point()
+
+
+
+summary(t_JL_Model_2)
+CaseStudy2_raw <- CaseStudy2_raw %>% mutate(JobLevelSQ = JobLevel^2)
+MonthlyIncome_preds2 = predict(t_JL_Model_2)
+
+Predict_JL_1 <- predict(t_JL_Model_1)
+CaseStudy2_raw %>% ggplot(aes(x = MonthlyIncome, y = JobLevel)) + geom_smooth()
+#CaseStudy2_raw %>% ggplot(aes(x = Final_Predict, y = JobLevel)) + geom_smooth()
+CaseStudy2_raw %>% ggplot(aes(x = MonthlyIncome_preds2, y = JobLevel)) + geom_smooth()
+
+#More EDA
+CaseStudy2_raw %>% ggplot(aes(x = MonthlyIncome, y = JobLevel)) + geom_smooth()
+
+JL_Model_1 <- train(MonthlyIncome ~ JobLevel, method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+Predict_JL_Model_1 <- predict(JL_Model_1)
+Sum_JL_Model_1 <-summary(JL_Model_1)
+CaseStudy2_raw %>% ggplot(aes(x = Predict_JL_Model_1, y = JobLevel)) + geom_smooth() + geom_point()
+CaseStudy2_raw %>% ggplot(aes(x = JobLevel, y = Predict_JL_Model_1)) + geom_smooth() + geom_point()
+
+
+CaseStudy2_raw$JobLevelSQ <- CaseStudy2_raw$JobLevel^2
+JL_Model_2 <- train(MonthlyIncome ~ JobLevel + JobLevelSQ, method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+Predict_JL_Model_2 <- predict(JL_Model_2)
+Sum_JL_Model_2 <-summary(JL_Model_2)
+CaseStudy2_raw %>% ggplot(aes(x = JobLevel, y = Predict_JL_Model_2)) + geom_smooth() + geom_point()
+
+CaseStudy2_raw$JobLevelCub <- CaseStudy2_raw$JobLevel^3
+JL_Model_3 <- train(MonthlyIncome ~ JobLevel + JobLevelSQ + JobLevelCub, method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+Predict_JL_Model_3 <- predict(JL_Model_3)
+Sum_JL_Model_3 <- summary(JL_Model_3)
+CaseStudy2_raw %>% ggplot(aes(x = JobLevel, y = Predict_JL_Model_3)) + geom_smooth()
+
+
+CaseStudy2_raw %>% ggplot(aes(x = MonthlyIncome, y = TotalWorkingYears)) + geom_smooth()
+
+TWY_Model_1 <- train(MonthlyIncome ~ TotalWorkingYears, method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+Predict_TWY_Model_1 <- predict(TWY_Model_1)
+Sum_TWY_Model_1 <- summary(TWY_Model_1)
+
+CaseStudy2_raw$TotalWorkingYearsSQ <- CaseStudy2_raw$TotalWorkingYears^2
+TWY_Model_2 <- train(MonthlyIncome ~ TotalWorkingYears + TotalWorkingYearsSQ , method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+Predict_TWY_Model_2 <- predict(TWY_Model_2)
+Sum_TWY_Model_2 <- summary(TWY_Model_2)
+#CaseStudy2_raw %>% ggplot(aes(x = Predict_TWH_Model_1, y = TotalWorkingYears)) + geom_smooth() + geom_point()
+#CaseStudy2_raw %>% ggplot(aes(x = TotalWorkingYears, y = Predict_TWH_Model_1)) + geom_smooth() + geom_point()
+
+JL_TWH_Model_1 <- train(MonthlyIncome ~ JobLevel + TotalWorkingYears, method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+Predict_JL_TWH_Model_1 <- predict(JL_TWH_Model_1)
+Sum_JL_TWH_Model_1 <- summary(JL_TWH_Model_1)
+
+TWH_JL_Model_1 <- train(MonthlyIncome ~ TotalWorkingYears +JobLevel , method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+Predict_TWH_JL_Model_1 <- predict(TWH_JL_Model_1)
+Sum_TWH_JL_Model_1 <- summary(TWH_JL_Model_1)
+
+Age_Model_1 <- train(MonthlyIncome ~ Age, method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+Predict_Age_Model_1<- predict(Age_Model_1)
+Sum_Age_Model_1 <- summary(Age_Model_1)
+
+CaseStudy2_raw$AgeSQ <- CaseStudy2_raw$Age^2
+Age_Model_2 <- train(MonthlyIncome ~ Age + AgeSQ , method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+Predict_Age_Model_2 <- predict(Age_Model_2)
+Sum_Age_Model_2 <- summary(Age_Model_2)
+
+TWH_Age_Model_1 <- train(MonthlyIncome ~ Age + TotalWorkingYears , method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+Predict_TWH_Age_Model_1 <- predict(TWH_Age_Model_1)
+Sum_TWH_Age_Model_1 <- summary(TWH_Age_Model_1)
+
+JL_Age_Model_1 <- train(MonthlyIncome ~ Age + JobLevel , method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+Predict_JL_Age_Model_1 <- predict(JL_Age_Model_1)
+Sum_JL_Age_Model_1 <- summary(JL_Age_Model_1)
+
+Sum_JL_Age_Model_1$r.squared #0.9141776
+Sum_TWH_Age_Model_1$r.squared #0.616751
+Sum_Age_Model_2$r.squared #0.2755832
+Sum_Age_Model_1$r.squared #0.2755832
+Sum_JL_TWH_Model_1$r.squared #0.915356
+Sum_JL_TWH_Model_1$r.squared #0.915356
+Sum_JL_Model_1$r.squared #0.9141695
+Sum_JL_Model_2$r.squared #0.9274724
+Sum_JL_Model_3$r.squared # 0.9320185
+Sum_TWY_Model_1$r.squared # 0.6122029
+Sum_TWY_Model_2$r.squared #0.6156517
+
+#Predict_Age_Model_1
+Age_Model_1 <- train(MonthlyIncome ~ Age, method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+Predict_Age_Model_1<- predict(Age_Model_1)
+Sum_Age_Model_1 <- summary(Age_Model_1)
+CaseStudy2_raw %>% ggplot(aes(x = Age, y = MonthlyIncome)) + geom_smooth() + geom_point()
+CaseStudy2_raw %>% ggplot(aes(x = Age, y = Predict_Age_Model_1)) + geom_smooth() + geom_point()
+
+CaseStudy2_raw_Under_50 <- CaseStudy2_raw %>% filter(Age <=53)
+CaseStudy2_raw_Over_50 <- CaseStudy2_raw %>% filter(Age >53)
+nrow(CaseStudy2_raw_Under_50)
+nrow(CaseStudy2_raw_Over_50)
+
+
+linearMod_Age_T_Wrkng_Yrs_jl2 <- train(MonthlyIncome ~ Age + TotalWorkingYears + JobLevel + JobLevelCub , method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+summary(linearMod_Age_T_Wrkng_Yrs_jl2)
+linearMod_Age_T_Wrkng_Yrs_jl2$results #RMSE 1303
+Predict_Age_T_Wrkng_Yrs_jl2 <- predict(linearMod_Age_T_Wrkng_Yrs_jl2)
+Sum_Age_T_Wrkng_Yrs_jl2 <- summary(linearMod_Age_T_Wrkng_Yrs_jl2)
+Sum_Age_T_Wrkng_Yrs_jl2$r.squared #r-sq 0.92
+CaseStudy2_raw %>% ggplot(aes(x = TotalWorkingYears, y = Predict_Age_T_Wrkng_Yrs_jl2)) + geom_smooth() + geom_point()
+
+linearMod_Age_T_Wrkng_Yrs_jl2 <- train(MonthlyIncome ~ Age + TotalWorkingYears + JobLevel + JobLevelCub , method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+summary(linearMod_Age_T_Wrkng_Yrs_jl2)
+linearMod_Age_T_Wrkng_Yrs_jl2$results #RMSE 1303
+Predict_Age_T_Wrkng_Yrs_jl2 <- predict(linearMod_Age_T_Wrkng_Yrs_jl2)
+Sum_Age_T_Wrkng_Yrs_jl2 <- summary(linearMod_Age_T_Wrkng_Yrs_jl2)
+Sum_Age_T_Wrkng_Yrs_jl2$r.squared #r-sq 0.92
+CaseStudy2_raw %>% ggplot(aes(x = Age, y = Predict_Age_T_Wrkng_Yrs_jl2)) + geom_smooth() + geom_point()
+
+LM_Under_50 <- train(MonthlyIncome ~ Age + TotalWorkingYears + JobLevel + JobLevelCub , method = "lm", data = CaseStudy2_raw_Under_50, trControl = trainControl(method = "LOOCV"))
+summary(LM_Under_50)
+LM_Under_50$results #RMSE 1300
+Predict_LM_Under_50 <- predict(LM_Under_50)
+Sum_LM_Under_50 <- summary(LM_Under_50)
+Sum_LM_Under_50$r.squared #r-sq 0.908
+CaseStudy2_raw_Under_50 %>% ggplot(aes(x = Age, y = Predict_LM_Under_50)) + geom_smooth() + geom_point()
+
+LM_Over_50 <- train(MonthlyIncome ~ Age + TotalWorkingYears + JobLevel  , method = "lm", data = CaseStudy2_raw_Over_50, trControl = trainControl(method = "LOOCV"))
+summary(LM_Over_50)
+LM_Over_50$results #RMSE 1300
+Predict_LM_Over_50 <- predict(LM_Over_50)
+Sum_LM_Over_50 <- summary(LM_Over_50)
+Sum_LM_Over_50$r.squared #r-sq 0.908
+CaseStudy2_raw_Over_50 %>% ggplot(aes(x = Age, y = Predict_LM_Over_50)) + geom_smooth() + geom_point()
+#Final SALARY MODEL
+CaseStudy2_raw$JobLevelCub <- CaseStudy2_raw$JobLevel^3
+linearMod_Age_T_Wrkng_Yrs_jl2 <- train(MonthlyIncome ~ Age + TotalWorkingYears + JobLevel + JobLevelCub , method = "lm", data = CaseStudy2_raw, trControl = trainControl(method = "LOOCV"))
+summary(linearMod_Age_T_Wrkng_Yrs_jl2)
+linearMod_Age_T_Wrkng_Yrs_jl2$results #RMSE 1303
+Predict_Age_T_Wrkng_Yrs_jl2 <- predict(linearMod_Age_T_Wrkng_Yrs_jl2)
+Sum_Age_T_Wrkng_Yrs_jl2 <- summary(linearMod_Age_T_Wrkng_Yrs_jl2)
+Sum_Age_T_Wrkng_Yrs_jl2$r.squared #r-sq 0.92
+#CaseStudy2_raw %>% ggplot(aes(x = Age, y = Predict_Age_T_Wrkng_Yrs_jl2)) + geom_smooth() + geom_point() + ylab("Predicted Salary") +ggtitle("Plot showing the predicted salary vs.Age")
+
+#CaseStudy2_Comp_Sal_set<- read.csv(file.choose(), header = TRUE, sep=',')
+colnames(CaseStudy2_Comp_Sal_set)
+colnames(CaseStudy2_Comp_Sal_set) <-c("ID","Age","Attrition","BusinessTravel","DailyRate","Department","DistanceFromHome","Education","EducationField","EmployeeCount", "EmployeeNumber", "EnvironmentSatisfaction","Gender","HourlyRate","JobInvolvement","JobLevel","JobRole","JobSatisfaction", "MaritalStatus","MonthlyRate", "NumCompaniesWorked","Over18","OverTime","PercentSalaryHike","PerformanceRating","RelationshipSatisfaction","StandardHours","StockOptionLevel","TotalWorkingYears","TrainingTimesLastYear",                          "WorkLifeBalance","YearsAtCompany","YearsInCurrentRole","YearsSinceLastPromotion", "YearsWithCurrManager")
+
+CaseStudy2_Comp_Sal_set$JobLevelCub <- CaseStudy2_Comp_Sal_set$JobLevel^3
+Predict_Comp_Sal_set <- round(predict(linearMod_Age_T_Wrkng_Yrs_jl2, newdata = CaseStudy2_Comp_Sal_set),0)
+
+answers_sal <- cbind(Predict_Comp_Sal_set,CaseStudy2_Comp_Sal_set[1])
+head(answers_sal)
+colnames(answers_sal) <- c('Predicted Salary','ID')
+joined_data_sal <- left_join(answers_sal, CaseStudy2_Comp_Sal_set, by = "ID")
+head(joined_data_sal)
+output_sal <- select (joined_data_sal,"Predicted Salary", "ID","Age","Attrition","BusinessTravel","DailyRate","Department","DistanceFromHome","Education","EducationField","EmployeeCount",              "EmployeeNumber","EnvironmentSatisfaction", "Gender","HourlyRate","JobInvolvement","JobLevel","JobRole","JobSatisfaction","MaritalStatus","MonthlyRate","NumCompaniesWorked","Over18","OverTime","PercentSalaryHike","PerformanceRating","RelationshipSatisfaction","StandardHours","StockOptionLevel","TotalWorkingYears","TrainingTimesLastYear","WorkLifeBalance","YearsAtCompany","YearsInCurrentRole","YearsSinceLastPromotion","YearsWithCurrManager")
+
+write.csv(output_sal, file = "C:/Users/simer/Documents/SMU/Doing_DataScience/Case_Study_2/Case2PredictionsRegressREDDY.csv")
+
+
+
+
+```
+
+
+
+
