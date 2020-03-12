@@ -1,6 +1,6 @@
- name: #"my-website"
+ name: "my-website"
  navbar:
-  title: #"My Website"
+  title: "My Website"
   left:
    - text: "About me"
      href: About_Me.html
